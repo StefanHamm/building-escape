@@ -1,0 +1,27 @@
+name: evacuation-env
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - matplotlib
+  - pandas
+  - scikit-image
+  - pillow
+  - imageio
+  - tqdm
+  - seaborn
+  - scikit-learn
+  - numba
+  - notebook
+  - ipywidgets
+  - pytest
+  - pip
+  - pip:
+    - imageio-ffmpeg
+    - celluloid
+    - matplotlib-scalebar
+
