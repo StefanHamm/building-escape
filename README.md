@@ -9,3 +9,6 @@ Supervisor: Martin Bicher martin.bicher@tuwien.ac.at
 
 ## Description
 Defined in [Building Escape.pdf](Building&#32;Escape.pdf)
+
+## Floor planner tool
+https://stefanhamm.github.io/building-escape/
