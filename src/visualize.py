@@ -207,7 +207,7 @@ def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients
 
         rows, cols = fplan.shape
         rgb = _floorplan_to_rgb(fplan)
-        arrow_spacing = max(1, min(rows, cols) // 20)
+        arrow_spacing = 1
 
         # Create 2x2 subplot grid
         fig, axes = plt.subplots(2, 2, figsize=(max(12, cols / 2.5), max(12, rows / 2.5)))
