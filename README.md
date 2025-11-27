@@ -27,4 +27,4 @@ python src/processFloorPlans.py
 The SSF is saved as a numpy array in the `data/floorPlansSSF` folder.
 Visualizations are automatically created and saved in the `data/floorPlanSSFVisualizations` folder.
 
-![Visualization Example](data\floorPlansSSFVisualizations\small_visualization.png)
+![Visualization Example](data/floorPlansSSFVisualizations/small_visualization.png)
