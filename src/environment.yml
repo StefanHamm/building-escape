@@ -16,9 +16,8 @@ dependencies:
   - seaborn
   - scikit-learn
   - numba
-  - notebook
+  - ipykernel
   - ipywidgets
-  - pytest
   - pip
   - pip:
     - imageio-ffmpeg
