@@ -15,3 +15,5 @@ Defined in [Building Escape.pdf](Building&#32;Escape.pdf)
    ```bash
    conda env create -f environment.yml
    ```
+## Floor planner tool
+https://stefanhamm.github.io/building-escape/
