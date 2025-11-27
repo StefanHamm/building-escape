@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"/>
+    <title>Floor Editor & Visualizer (multi-solution)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        header select {
+            height: 30px;
+        }
+
+        fieldset {
+            margin-bottom: 2rem;
+            padding: 1rem;
+        }
+
+        legend {
+            font-weight: bold;
+        }
+
+        /* ───────────────────────── Draw mode ───────────────────────── */
+        #grid {
+            display: inline-block;
+        }
+
+        .row {
+            display: flex;
+        }
+
+        .cell {
+            width: 24px;
+            height: 24px;
+            border: 1px solid #aaa;
+            box-sizing: border-box;
+        }
+
+        .palette button {
+            width: 90px;
+            height: 30px;
+            margin-right: 5px;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+
+        .palette button.selected {
+            border-color: #000;
+        }
+
+        /* ──────────────────────── View mode (canvas) ─────────────────────── */
+        canvas {
+            border: 1px solid #aaa;
+            margin-top: 1rem;
+            max-width: 100%;
+        }
+
+        .controls,
+        .viewer-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .viewer-controls {
+            margin-bottom: .5rem;
+        }
+
+        .nav {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            margin-top: .75rem;
+        }
+
+        .nav button {
+            min-width: 90px;
+        }
+
+        #resetZoomBtn {
+            margin-left: auto;
+            border: red 1px solid;
+            z-index: 1000;
+        }
+
+        #multiToggleBtn {
+            border: 1px solid #aaa;
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        #log {
+            white-space: pre-wrap;
+            background: #f5f5f5;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            margin-top: 1rem;
+        }
+
+        button,
+        input[type="file"],
+        input[type="number"],
+        input[type="text"],
+        select {
+            height: 30px;
+            line-height: 30px;
+            padding: 0 .5rem;
+            box-sizing: border-box;
+            border-radius: 5px;
+        }
+
+        #viztips {
+            font-size: 0.9rem;
+            color: #444;
+            background-color: #f0f4f8;
+            padding: 0.3rem 1rem;
+            border-left: 4px solid #007acc;
+            border-radius: 4px;
+        }
+
+        #viztips strong {
+            color: #005a9e;
+        }
+
+        /* ─────────────────────── Legend ─────────────────────── */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .75rem 1.5rem;
+            align-items: center;
+            margin-top: .5rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .9rem;
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #000;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>floor Tools</h1>
+    <label>Mode
+        <select id="modeSelect">
+            <option value="draw">Draw floor</option>
+            <option value="view">Visualize Files</option>
+
+        </select>
+    </label>
+    <p id="viztips">
+        <strong>Tips:</strong> Shift + Wheel to zoom, Mouse to drag, Change floor: W,D, Change Solution: W,S, Hover 🔓
+        Button for more info.
+    </p>
+</header>
+
+<!-- ╔══════════════════════════════ Draw mode ══════════════════════════════╗ -->
+<fieldset id="drawMode">
+    <legend>Draw New floor</legend>
+    <div class="controls">
+        <label>Width <input type="number" id="width" min="3" value="20"/></label>
+        <label>Height <input type="number" id="height" min="3" value="20"/></label>
+        <label>File name <input type="text" id="filename" value="floor" placeholder="floor"/></label>
+        <button id="createBtn">Create Grid</button>
+        <button id="saveBtn" disabled>Save .fplan</button>
+        <label>Load floor <input type="file" id="loadfloorFile" accept=".fplan"/></label>
+    </div>
+    <div class="palette" id="palette"></div>
+    <div id="grid"></div>
+</fieldset>
+<!-- ╚═══════════════════════════════════════════════════════════════════════╝ -->
+
+<!-- ╔═════════════════════════════ View mode ═══════════════════════════════╗ -->
+<fieldset id="viewMode">
+    <legend>Load & Visualize</legend>
+
+    <div class="viewer-controls">
+        <label>Floor files <input type="file" id="floorFiles" accept=".t" multiple/></label>
+        <label>Trip files <input type="file" id="tripFiles" accept=".csv" multiple/></label>
+        <button id="processBtn">Load & Draw</button>
+        <button id="resetZoomBtn">Reset View</button>
+    </div>
+
+    <div class="nav">
+        <button id="floorPrevBtn">◀ floor</button>
+        <span id="floorLabel">-</span>
+        <button id="floorNextBtn">floor ▶</button>
+
+        <button id="tripPrevBtn">◀ Solution</button>
+        <span id="tripLabel">-</span>
+        <button id="tripNextBtn">Solution ▶</button>
+        <button id="multiToggleBtn" title="Lock solutions to their floors.
+Solution files must match the pattern: {floorname}_sol{postfix}, for example:
+For floor file: floor_01.t
+Solution files: floor_01_sol_one.csv, floor_01_sol_two.csv">
+            🔓
+        </button>
+    </div>
+
+    <div id="legend" class="legend" aria-label="Solution legend" style="visibility: hidden;"></div>
+    <canvas id="canvas" width="800" height="800" aria-label="floor visualization"></canvas>
+
+
+    <pre id="log"></pre>
+</fieldset>
+<!-- ╚═══════════════════════════════════════════════════════════════════════╝ -->
+
+<script>
+    /*****************  Mode switch - show one fieldset at a time  **************/
+    (function () {
+        const modeSel = document.getElementById('modeSelect');
+        const drawFS = document.getElementById('drawMode');
+        const viewFS = document.getElementById('viewMode');
+        const vizTips = document.getElementById('viztips')
+
+        function switchMode(val) {
+            drawFS.style.display = val === 'draw' ? '' : 'none';
+            viewFS.style.display = val === 'view' ? '' : 'none';
+            vizTips.style.display = val === 'view' ? '' : 'none';
+        }
+
+        modeSel.addEventListener('change', e => switchMode(e.target.value));
+        switchMode(modeSel.value); // initial state
+    })();
+
+    /*********************  Shared tile definitions & colours  *******************/
+    const tileTypes = {
+        F: {name: "Floor", color: "#dcdcdc"},
+        E: {name: "Exit", color: "#ff0101"},
+        W: {name: "Wall", color: "#000000"}
+    };
+    const COLORS = {
+        ...Object.fromEntries(Object.entries(tileTypes).map(([k, v]) => [k, v.color])),
+        default: tileTypes.W.color
+    };
+
+    /* colours for multiple solution paths */
+    const PATH_COLORS = [
+        "#000000", // Black
+        "#fb5a00", // Orange
+        "#0042ff", // Blue
+        "#7a02a4", // Purple
+        "#ff0101", // Red
+        "#e91e63", // Pink
+        "#572d08", // Brown
+        "#a726bd", // Deep Purple
+        "#ffc107", // Amber
+        "#607d8b", // Blue Grey
+    ];
+
+    /*******************************  Draw module  *******************************/
+    (() => {
+    let selectedChar = "F";
+        let isMouseDown = false;
+
+        // Build palette
+        const paletteDiv = document.getElementById("palette");
+        for (const [char, tile] of Object.entries(tileTypes)) {
+            const btn = document.createElement("button");
+            btn.textContent = tile.name;
+            btn.style.background = tile.color;
+            // Ensure text is readable when background is black
+            const bg = (tile.color || '').toString().toLowerCase();
+            if (bg === '#000000' || bg === 'black') {
+                btn.style.color = '#ffffff';
+            } else {
+                btn.style.color = '#000000';
+            }
+            btn.dataset.char = char;
+            if (char === selectedChar) btn.classList.add("selected");
+            btn.onclick = () => {
+                selectedChar = char;
+                [...paletteDiv.children].forEach(b => b.classList.toggle("selected", b === btn));
+            };
+            paletteDiv.appendChild(btn);
+        }
+
+        document.addEventListener("mousedown", () => {
+            isMouseDown = true;
+        });
+        document.addEventListener("mouseup", () => {
+            isMouseDown = false;
+        });
+
+        function applyChar(cell, char) {
+            // Use the tileTypes color if available, otherwise fall back to Wall color
+            const color = tileTypes[char]?.color ?? tileTypes.W.color;
+            cell.style.background = color;
+            cell.dataset.char = char;
+        }
+
+        function paint(cell) {
+            if (cell.dataset.locked === "true") return; // immutable border
+            applyChar(cell, selectedChar);
+        }
+
+        function createGrid(w, h) {
+            const grid = document.getElementById("grid");
+            grid.innerHTML = "";
+            for (let y = 0; y < h; y++) {
+                const rowDiv = document.createElement("div");
+                rowDiv.className = "row";
+                for (let x = 0; x < w; x++) {
+                    const cell = document.createElement("div");
+                    cell.className = "cell";
+
+                    const isBorder = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+                    if (isBorder) {
+                        // Fill outer rim with Wall but keep it editable
+                        applyChar(cell, "W");
+                    } else {
+                        applyChar(cell, "F");
+                    }
+
+                    cell.onmousedown = e => {
+                        e.preventDefault();
+                        paint(cell);
+                    };
+                    cell.onmouseenter = () => {
+                        if (isMouseDown) paint(cell);
+                    };
+                    rowDiv.appendChild(cell);
+                }
+                grid.appendChild(rowDiv);
+            }
+            document.getElementById("saveBtn").disabled = false;
+        }
+
+        // Load .t file into editor
+        document.getElementById('loadfloorFile').addEventListener('change', async e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            loadfloorToEditor(text);
+            // reset input so selecting same file again triggers change
+            e.target.value = '';
+        });
+
+        function loadfloorToEditor(text) {
+            const lines = text.replace(/\r\n/g, "\n").split("\n").filter(Boolean);
+            if (!lines.length) {
+                alert('File is empty');
+                return;
+            }
+            const h = lines.length;
+            const w = Math.max(...lines.map(l => l.length));
+            document.getElementById('width').value = w;
+            document.getElementById('height').value = h;
+            createGrid(w, h);
+            const rows = [...document.querySelectorAll('#grid .row')];
+            lines.forEach((ln, y) => {
+                [...ln].forEach((ch, x) => {
+                    if (x < w && y < h) {
+                        const cell = rows[y].children[x];
+                        applyChar(cell, ch);
+                            // keep border editable — do not set locked
+                    }
+                });
+            });
+        }
+
+        document.getElementById("createBtn").onclick = () => {
+            const w = +document.getElementById("width").value;
+            const h = +document.getElementById("height").value;
+            if (w >= 3 && h >= 3) createGrid(w, h);
+        };
+
+        document.getElementById("saveBtn").onclick = () => {
+            const rows = [...document.querySelectorAll("#grid .row")];
+            const lines = rows.map(r => [...r.children].map(c => c.dataset.char || "F").join(""));
+            const content = lines.join("\n");
+
+            let fname = document.getElementById("filename").value.trim() || "floor";
+            fname = fname.replace(/[\\/:*?"<>|]/g, "");
+            if (!fname.toLowerCase().endsWith(".fplan")) fname += ".fplan";
+
+            const blob = new Blob([content], {type: "text/plain"});
+            const url = URL.createObjectURL(blob);
+            const a = Object.assign(document.createElement("a"), {href: url, download: fname});
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+    })();
+    /****************************  Visualizer module  ***************************/
+    (() => {
+        /* ===== Utility ===== */
+        const readFileAsText = file => new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result);
+            r.onerror = () => rej(r.error);
+            r.readAsText(file);
+        });
+
+        const baseName = name => name.replace(/\.[^/.]+$/, '').replace(/_sol.*$/, '');
+
+        /* ===== Geometry ===== */
+        function intersectLines(ax, ay, bx, by, cx, cy, dx, dy) {
+            const d1 = (ax - bx) * (cy - dy);
+            const d2 = (ay - by) * (cx - dx);
+            const dp = d1 - d2;
+            const dq = d2 - d1;
+            if (dp !== 0 && dq !== 0) {
+                const p = ((by - dy) * (cx - dx) - (bx - dx) * (cy - dy)) / dp;
+                const q = ((dy - by) * (ax - bx) - (dx - bx) * (ay - by)) / dq;
+                if (p > 0 && p <= 1 && q > 0 && q <= 1) {
+                    return [p * ax + (1 - p) * bx, p * ay + (1 - p) * by];
+                }
+            }
+            return [];
+        }
+
+        const testCollision = (cX, cY, aX, aY, bX, bY) => [
+            [cX - 0.5, cY - 0.5, cX - 0.5, cY + 0.5],
+            [cX - 0.5, cY + 0.5, cX + 0.5, cY + 0.5],
+            [cX + 0.5, cY + 0.5, cX + 0.5, cY - 0.5],
+            [cX + 0.5, cY - 0.5, cX - 0.5, cY - 0.5],
+        ].some(e => intersectLines(...e, aX, aY, bX, bY).length);
+
+        /* ===== Canvas drawing helpers ===== */
+        const CELL_SIZE = 32;
+        const CROSS_HALF = 6;
+        const MARGIN_LEFT = CELL_SIZE;
+        const MARGIN_BOTTOM = CELL_SIZE;
+        const coordToPixel = (x, y, rows) => [MARGIN_LEFT + (x + 0.5) * CELL_SIZE, (rows - y - 0.5) * CELL_SIZE];
+
+        function drawBoard(ctx, grid) {
+            const rows = grid.length, cols = grid[0].length;
+            ctx.canvas.width = MARGIN_LEFT + cols * CELL_SIZE + 2;
+            ctx.canvas.height = rows * CELL_SIZE + MARGIN_BOTTOM + 2;
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+            // Cells
+            for (let y = 0; y < rows; y++)
+                for (let x = 0; x < cols; x++) {
+                    ctx.fillStyle = COLORS[grid[y][x]] ?? COLORS.default;
+                    ctx.fillRect(MARGIN_LEFT + x * CELL_SIZE, (rows - y - 1) * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+
+            // Dotted grid
+            ctx.save();
+            ctx.strokeStyle = "#888";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            for (let x = 0; x <= cols; x++) {
+                const px = MARGIN_LEFT + (x + 0.5) * CELL_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, rows * CELL_SIZE);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= rows; y++) {
+                const py = (rows - y - 0.5) * CELL_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(MARGIN_LEFT, py);
+                ctx.lineTo(MARGIN_LEFT + cols * CELL_SIZE, py);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // Axis labels
+            ctx.fillStyle = "#000";
+            ctx.font = "14px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            for (let x = 0; x < cols; x++) {
+                const [px] = coordToPixel(x, 0, rows);
+                ctx.fillText(x, px, rows * CELL_SIZE + 4);
+            }
+            ctx.textAlign = "right";
+            ctx.textBaseline = "middle";
+            for (let y = 0; y < rows; y++) {
+                const [, py] = coordToPixel(0, y, rows);
+                ctx.fillText(y, MARGIN_LEFT - 4, py);
+            }
+        }
+
+        function drawTrip(ctx, trip, rows, colour = "#000") {
+            if (!trip.length) return;
+
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = colour;
+            ctx.beginPath();
+            trip.forEach(([x, y], i) => {
+                const [px, py] = coordToPixel(x, y, rows);
+                i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+            });
+            ctx.stroke();
+
+            ctx.font = "12px sans-serif";
+            ctx.fillStyle = colour;
+            trip.forEach(([x, y], i) => {
+                const [px, py] = coordToPixel(x, y, rows);
+                ctx.save();
+                ctx.strokeStyle = colour;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(px - CROSS_HALF, py - CROSS_HALF);
+                ctx.lineTo(px + CROSS_HALF, py + CROSS_HALF);
+                ctx.moveTo(px - CROSS_HALF, py + CROSS_HALF);
+                ctx.lineTo(px + CROSS_HALF, py - CROSS_HALF);
+                ctx.stroke();
+                ctx.restore();
+                ctx.fillText(i, px + 10, py - 10);
+            });
+        }
+
+        const drawErrors = (ctx, errors, rows) => {
+            ctx.strokeStyle = "#780c1d";
+            ctx.lineWidth = 4;
+            errors.forEach(([x, y]) => {
+                const [px, py] = coordToPixel(x, y, rows);
+                ctx.beginPath();
+                ctx.arc(px, py, CELL_SIZE * 0.4, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+        };
+
+        /* ===== Parsing ===== */
+        function buildfloor(text, name) {
+            const lines = text.replace(/\r\n/g, "\n").split("\n").filter(Boolean);
+            const rows = lines.length, cols = Math.max(...lines.map(l => l.length));
+            const grid = Array.from({length: rows}, () => Array(cols).fill(" "));
+            const obstacles = [], finish = [];
+            lines.forEach((ln, i) => {
+                const y = rows - 1 - i;
+                [...ln].forEach((ch, x) => {
+                    grid[y][x] = ch;
+                    if (ch === "O") obstacles.push([x, y]);
+                    if (ch === "F") finish.push([x, y]);
+                });
+            });
+            return {name, grid, rows, obstacles, finish};
+        }
+
+        const parseTrip = (text, name) => ({name, trip: text.trim().split(/\r?\n/).map(l => l.split(',').map(Number))});
+
+        /* ===== Validation ===== */
+        function validateTrip(floor, tripArr) {
+            const {grid, obstacles, finish} = floor;
+            const wrong = [];
+            let finished = false;
+            let prevX, prevY, prevSX = 0, prevSY = 0, prevGrass = false;
+            tripArr.forEach(([cx, cy], idx) => {
+                if (idx === 0) {
+                    if ((grid[cy] || [])[cx] !== "S") wrong.push([cx, cy]);
+                    prevX = cx;
+                    prevY = cy;
+                    return;
+                }
+                const curSX = cx - prevX, curSY = cy - prevY;
+                if (prevX + prevSX - 1 > cx || prevX + prevSX + 1 < cx || prevY + prevSY - 1 > cy || prevY + prevSY + 1 < cy) wrong.push([cx, cy]);
+                if (prevGrass) {
+                    if ((Math.abs(prevSX) > 1 && Math.abs(curSX) >= Math.abs(prevSX)) || (Math.abs(prevSY) > 1 && Math.abs(curSY) >= Math.abs(prevSY))) wrong.push([cx, cy]);
+                }
+                for (const [oX, oY] of obstacles) {
+                    if (testCollision(oX, oY, prevX, prevY, cx, cy)) {
+                        wrong.push([cx, cy]);
+                        break;
+                    }
+                }
+                for (const [fX, fY] of finish) {
+                    if (testCollision(fX, fY, prevX, prevY, cx, cy)) {
+                        finished = true;
+                        break;
+                    }
+                }
+                const cell = (grid[cy] || [])[cx];
+                prevGrass = !cell || cell === "G";
+                prevX = cx;
+                prevY = cy;
+                prevSX = curSX;
+                prevSY = curSY;
+            });
+            if (!finished) wrong.push(tripArr.at(-1));
+            return {wrong, finished};
+        }
+
+        /* ===== Main viewer workflow ===== */
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let floors = [], trips = [], currentfloor = 0, currentTrip = 0;
+        let multiMode = false;
+        const floorLabel = document.getElementById('floorLabel');
+        const tripLabel = document.getElementById('tripLabel');
+        const logEl = document.getElementById('log');
+        const legendDiv = document.getElementById('legend');
+        const multiToggleBtn = document.getElementById('multiToggleBtn');
+
+        multiToggleBtn.addEventListener('click', () => {
+            multiMode = !multiMode;
+            multiToggleBtn.textContent = multiMode ? '🔒' : '🔓';
+            drawCurrent();
+        });
+
+        document.getElementById('processBtn').addEventListener('click', async () => {
+            const floorFiles = Array.from(document.getElementById('floorFiles').files);
+            const tripFiles = Array.from(document.getElementById('tripFiles').files);
+            if (!floorFiles.length || !tripFiles.length) {
+                alert('Please select at least one floor and one solution file.');
+                return;
+            }
+            try {
+                const floorTexts = await Promise.all(floorFiles.map(readFileAsText));
+                floors = floorTexts.map((txt, i) => buildfloor(txt, floorFiles[i].name));
+                const tripTexts = await Promise.all(tripFiles.map(readFileAsText));
+                trips = tripTexts.map((txt, i) => parseTrip(txt, tripFiles[i].name));
+                currentfloor = 0;
+                currentTrip = 0;
+                drawCurrent();
+            } catch (e) {
+                alert('Error reading files: ' + e.message);
+            }
+        });
+
+        function drawCurrent() {
+            if (!floors.length || !trips.length) return;
+            const floor = floors[currentfloor];
+            drawBoard(ctx, floor.grid);
+
+            const relevantTrips = multiMode
+                ? trips.filter(t => baseName(t.name) === baseName(floor.name))
+                : [trips[currentTrip]];
+
+            legendDiv.innerHTML = '';
+            legendDiv.style.visibility = multiMode ? 'visible' : 'hidden';
+
+            const multiLog = [];
+
+            relevantTrips.forEach((t, idx) => {
+                const colour = PATH_COLORS[idx % PATH_COLORS.length];
+                drawTrip(ctx, t.trip, floor.rows, colour);
+
+                // Validate and draw errors for each trip
+                const {wrong, finished} = validateTrip(floor, t.trip);
+                drawErrors(ctx, wrong, floor.rows);
+
+                if (multiMode) {
+                    // Build legend item
+                    const item = document.createElement('div');
+                    item.className = 'legend-item';
+                    const swatch = document.createElement('span');
+                    swatch.className = 'legend-color';
+                    swatch.style.background = colour;
+                    const lbl = document.createElement('span');
+                    lbl.textContent = t.name + " 🏁 " + (t.trip.length-1);
+                    item.appendChild(swatch);
+                    item.appendChild(lbl);
+                    legendDiv.appendChild(item);
+
+                    // Add to log
+                    multiLog.push(`${t.name}: ${wrong.length > 0 ? `❌ ${wrong.length} wrong point(s)` : '✔️ no errors'}`);
+                } else {
+                    logEl.textContent = `floor: ${floor.name}\nSolution: ${t.name}\n❌ Wrong points: ${JSON.stringify(wrong)}\nFinish reached: ${finished}`;
+                }
+            });
+
+            if (multiMode) {
+                logEl.textContent = `floor: ${floor.name}\nMulti-solution view: ${relevantTrips.length} solution(s) shown.\n` +
+                    multiLog.join('\n');
+            }
+
+            floorLabel.textContent = `${currentfloor + 1}/${floors.length}: ${floor.name}`;
+            tripLabel.textContent = multiMode
+                ? `–`
+                : `${currentTrip + 1}/${trips.length}: ${relevantTrips[0].name}`;
+        }
+
+
+        const resetZoomBtn = document.getElementById('resetZoomBtn');
+
+        /* ===== Nav helpers ===== */
+        const prevfloor = () => {
+            if (!floors.length) return;
+            currentfloor = (currentfloor - 1 + floors.length) % floors.length;
+            resetZoom();
+            drawCurrent();
+        };
+        const nextfloor = () => {
+            if (!floors.length) return;
+            currentfloor = (currentfloor + 1) % floors.length;
+            resetZoom();
+            drawCurrent();
+        };
+        const prevTrip = () => {
+            if (!trips.length || multiMode) return;
+            currentTrip = (currentTrip - 1 + trips.length) % trips.length;
+            drawCurrent();
+        };
+        const nextTrip = () => {
+            if (!trips.length || multiMode) return;
+            currentTrip = (currentTrip + 1) % trips.length;
+            drawCurrent();
+        };
+
+        document.getElementById('floorPrevBtn').addEventListener('click', prevfloor);
+        document.getElementById('floorNextBtn').addEventListener('click', nextfloor);
+        document.getElementById('tripPrevBtn').addEventListener('click', prevTrip);
+        document.getElementById('tripNextBtn').addEventListener('click', nextTrip);
+
+        window.addEventListener('keydown', e => {
+            switch (e.key) {
+                case 'a':
+                    prevfloor();
+                    break;
+                case 'd':
+                    nextfloor();
+                    break;
+                case 's':
+                    prevTrip();
+                    break;
+                case 'w':
+                    nextTrip();
+                    break;
+            }
+        });
+
+        /* ===== Zoom & pan ===== */
+        let zoomCss = 1, panX = 0, panY = 0, drag = null;
+
+        function applyTransform() {
+            canvas.style.transform = `translate(${panX}px,${panY}px) scale(${zoomCss})`;
+        }
+
+        canvas.addEventListener('wheel', e => {
+            if (!e.shiftKey) return;
+            e.preventDefault();
+            zoomCss *= e.deltaY < 0 ? 1.15 : 0.87;
+            zoomCss = Math.min(Math.max(zoomCss, 0.25), 4);
+            applyTransform();
+        });
+        canvas.style.cursor = 'grab';
+
+        function startDrag(x, y) {
+            drag = {x, y};
+            canvas.style.cursor = 'grabbing';
+        }
+
+        function moveDrag(x, y) {
+            if (!drag) return;
+            panX += x - drag.x;
+            panY += y - drag.y;
+            drag = {x, y};
+            applyTransform();
+        }
+
+        function endDrag() {
+            drag = null;
+            canvas.style.cursor = 'grab';
+        }
+
+        canvas.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
+        window.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+        window.addEventListener('mouseup', endDrag);
+
+        function resetZoom() {
+            zoomCss = 1;
+            panX = panY = 0;
+            applyTransform();
+        }
+
+        resetZoomBtn.addEventListener('click', resetZoom);
+    })();
+</script>
+</body>
+
+</html>
