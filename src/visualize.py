@@ -6,6 +6,7 @@ from typing import Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch,FancyArrow
 
 from loader import loadFloorPlan
 
@@ -35,12 +36,146 @@ def _floorplan_to_rgb(fplan: np.ndarray) -> np.ndarray:
     return img
 
 
-def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str):
-    """Visualize all .fplan files in floorplans_dir with their corresponding
-    static floor field (_sff.npy) files in sff_dir.
+def _compute_direction_to_lowest_neighbor(sff: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """For each cell, compute direction vector pointing to the lowest neighboring cell.
+    
+    Returns:
+        dir_row: row direction component (-1, 0, or 1)
+        dir_col: column direction component (-1, 0, or 1)
+    """
+    rows, cols = sff.shape
+    dir_row = np.zeros_like(sff, dtype=float)
+    dir_col = np.zeros_like(sff, dtype=float)
+    
+    # 8-connected neighbors: all 8 surrounding cells
+    neighbors = [(-1, -1), (-1, 0), (-1, 1),
+                 (0, -1),           (0, 1),
+                 (1, -1),  (1, 0),  (1, 1)]
+    
+    for r in range(rows):
+        for c in range(cols):
+            if not np.isfinite(sff[r, c]):
+                continue
+            
+            current_val = sff[r, c]
+            lowest_val = current_val
+            lowest_dr = 0
+            lowest_dc = 0
+            
+            # Check all neighbors
+            for dr, dc in neighbors:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols:
+                    neighbor_val = sff[nr, nc]
+                    if np.isfinite(neighbor_val) and neighbor_val < lowest_val:
+                        lowest_val = neighbor_val
+                        lowest_dr = dr
+                        lowest_dc = dc
+            
+            # Normalize direction
+            if lowest_dr != 0 or lowest_dc != 0:
+                mag = np.sqrt(lowest_dr**2 + lowest_dc**2)
+                dir_row[r, c] = lowest_dr / mag
+                dir_col[r, c] = lowest_dc / mag
+    
+    return dir_row, dir_col
 
-    Clicking on the image prints the cell coordinates, the floorplan character
+def _compute_direction_to_horizontal_gradient(sff: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """For each cell, compute direction vector pointing to the horizontal gradient.
+    
+    Returns:
+        dir_row: row direction component (-1, 0, or 1)
+        dir_col: column direction component (-1, 0, or 1)
+    """
+    rows, cols = sff.shape
+    dir_row = np.zeros_like(sff, dtype=float)
+    dir_col = np.zeros_like(sff, dtype=float)
+    
+    for r in range(rows):
+        for c in range(cols):
+            if not np.isfinite(sff[r, c]):
+                continue
+            
+            current_val = sff[r, c]
+            # Check left neighbor
+            if c > 0 and np.isfinite(sff[r, c - 1]) and sff[r, c - 1] < current_val:
+                dir_col[r, c] = -1.0
+            # Check right neighbor
+            if c < cols - 1 and np.isfinite(sff[r, c + 1]) and sff[r, c + 1] < current_val:
+                dir_col[r, c] = 1.0
+    
+    return dir_row, dir_col
+
+def _compute_direction_to_vertical_gradient(sff: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """For each cell, compute direction vector pointing to the vertical gradient.
+    
+    Returns:
+        dir_row: row direction component (-1, 0, or 1)
+        dir_col: column direction component (-1, 0, or 1)
+    """
+    rows, cols = sff.shape
+    dir_row = np.zeros_like(sff, dtype=float)
+    dir_col = np.zeros_like(sff, dtype=float)
+    
+    for r in range(rows):
+        for c in range(cols):
+            if not np.isfinite(sff[r, c]):
+                continue
+            
+            current_val = sff[r, c]
+            # Check upper neighbor
+            if r > 0 and np.isfinite(sff[r - 1, c]) and sff[r - 1, c] < current_val:
+                dir_row[r, c] = -1.0
+            # Check lower neighbor
+            if r < rows - 1 and np.isfinite(sff[r + 1, c]) and sff[r + 1, c] < current_val:
+                dir_row[r, c] = 1.0
+    
+    return dir_row, dir_col
+
+
+def _draw_gradient_arrows(ax, fplan: np.ndarray, sff: np.ndarray, 
+                         dir_row: np.ndarray, dir_col: np.ndarray, 
+                         arrow_spacing: int = 1):
+    """Helper function to draw gradient arrows on an axis."""
+    rows, cols = fplan.shape
+    
+    for r in range(0, rows, arrow_spacing):
+        for c in range(0, cols, arrow_spacing):
+            if np.isfinite(sff[r, c]) and fplan[r, c] != 'W':
+                dr = dir_row[r, c]
+                dc = dir_col[r, c]
+                mag = np.sqrt(dr**2 + dc**2)
+                
+                if mag > 0.01:  # Only draw if direction is non-negligible
+                    scale = 0.3
+                    dx = dc * scale
+                    dy = dr * scale
+                    
+                    arrow = FancyArrowPatch(
+                        (c, r), (c + dx, r + dy),
+                        arrowstyle='->', mutation_scale=15, linewidth=1.0,
+                        color='white', alpha=0.7, zorder=10
+                    )
+                    ax.add_patch(arrow)
+
+
+def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients: bool = True, export_folder: Optional[str] = None):
+    """Visualize all .fplan files in floorplans_dir with their corresponding
+    static floor field (_sff.npy) files in sff_dir in a 2x2 grid.
+
+    Shows 4 different gradient visualizations:
+    - Top-left: Neighbor gradient (lowest neighbor)
+    - Top-right: Horizontal gradient
+    - Bottom-left: Vertical gradient
+    - Bottom-right: Combined (horizontal + vertical)
+
+    Clicking on any image prints the cell coordinates, the floorplan character
     and the SFF value (if available) and places a marker.
+    
+    Args:
+        floorplans_dir: Directory containing .fplan files
+        sff_dir: Directory containing _sff.npy files
+        show_gradients: If True, overlay gradient arrows pointing towards 0
     """
     os.makedirs(sff_dir, exist_ok=True)
 
@@ -67,89 +202,73 @@ def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str):
                 print(f"Failed to load SFF for '{filename}': {e}")
                 sff = None
 
+        if sff is None:
+            continue
+
         rows, cols = fplan.shape
         rgb = _floorplan_to_rgb(fplan)
+        arrow_spacing = max(1, min(rows, cols) // 20)
 
-        fig, ax = plt.subplots(figsize=(max(6, cols / 5), max(6, rows / 5)))
-        ax.set_title(filename)
+        # Create 2x2 subplot grid
+        fig, axes = plt.subplots(2, 2, figsize=(max(12, cols / 2.5), max(12, rows / 2.5)))
+        fig.suptitle(filename, fontsize=16)
 
-        # show base floorplan
-        im_floor = ax.imshow(rgb, origin='upper', interpolation='nearest')
+        # Compute all gradient directions
+        if show_gradients:
+            dir_neighbor_row, dir_neighbor_col = _compute_direction_to_lowest_neighbor(sff)
+            dir_horiz_row, dir_horiz_col = _compute_direction_to_horizontal_gradient(sff)
+            dir_vert_row, dir_vert_col = _compute_direction_to_vertical_gradient(sff)
+            # Combined: normalize both components together
+            dir_combined_row = dir_vert_row
+            dir_combined_col = dir_horiz_col
 
-        # overlay SFF if present
-        im_sff = None
-        cbar = None
-        if sff is not None:
+        # Helper function to setup each subplot
+        def setup_subplot(ax, title, dir_row_data, dir_col_data):
             # mask walls / inf values so they are transparent in the overlay
             sff_masked = np.ma.array(sff, mask=~np.isfinite(sff))
-            im_sff = ax.imshow(sff_masked, cmap='viridis', origin='upper',
-                               alpha=0.6, interpolation='nearest')
-            cbar = fig.colorbar(im_sff, ax=ax, fraction=0.046, pad=0.04)
-            cbar.set_label('SFF value')
+            ax.imshow(rgb, origin='upper', interpolation='nearest')
+            ax.imshow(sff_masked, cmap='viridis', origin='upper', alpha=0.6, interpolation='nearest')
+            
+            if show_gradients:
+                _draw_gradient_arrows(ax, fplan, sff, dir_row_data, dir_col_data, arrow_spacing)
+            
+            ax.set_title(title)
+            ax.set_xticks(np.arange(-0.5, cols, 1), minor=True)
+            ax.set_yticks(np.arange(-0.5, rows, 1), minor=True)
+            ax.grid(which='minor', color='lightgray', linestyle='-', linewidth=0.3)
+            ax.set_xticks([])
+            ax.set_yticks([])
 
-        ax.set_xticks(np.arange(-0.5, cols, 1), minor=True)
-        ax.set_yticks(np.arange(-0.5, rows, 1), minor=True)
-        ax.grid(which='minor', color='lightgray', linestyle='-', linewidth=0.3)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        # Top-left: Neighbor gradient
+        setup_subplot(axes[0, 0], 'Neighbor Gradient', dir_neighbor_row, dir_neighbor_col)
+        
+        # Top-right: Horizontal gradient
+        setup_subplot(axes[0, 1], 'Horizontal Gradient', dir_horiz_row, dir_horiz_col)
+        
+        # Bottom-left: Vertical gradient
+        setup_subplot(axes[1, 0], 'Vertical Gradient', dir_vert_row, dir_vert_col)
+        
+        # Bottom-right: Combined gradient
+        setup_subplot(axes[1, 1], 'Combined Gradient', dir_combined_row, dir_combined_col)
 
-        # interactive click handler
-        marker = {'artist': None}
+        # Add a shared colorbar
+        sff_masked = np.ma.array(sff, mask=~np.isfinite(sff))
+        cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7])
+        sm = plt.cm.ScalarMappable(cmap='viridis', norm=plt.Normalize(vmin=sff_masked.min(), vmax=sff_masked.max()))
+        sm.set_array([])
+        cbar = plt.colorbar(sm, cax=cbar_ax)
+        cbar.set_label('SFF value')
 
-        def onclick(event):
-            if event.inaxes is not ax or event.xdata is None or event.ydata is None:
-                return
-            # x -> column, y -> row; origin='upper' so floor array row = int(y)
-            col = int(event.xdata + 0.5)
-            row = int(event.ydata + 0.5)
-            # clamp
-            col = max(0, min(cols - 1, col))
-            row = max(0, min(rows - 1, row))
-
-            ch = fplan[row, col]
-            sff_val = None
-            if sff is not None and np.isfinite(sff[row, col]):
-                sff_val = float(sff[row, col])
-
-            print(f"Clicked on (row={row}, col={col}) char='{ch}' sff={sff_val}")
-
-            # remove previous marker
-            if marker['artist'] is not None:
-                try:
-                    marker['artist'].remove()
-                except Exception:
-                    pass
-            # place new marker
-            artist = ax.plot(col, row, marker='x', color='cyan', markersize=12, markeredgewidth=2)[0]
-            marker['artist'] = artist
-            # annotate value briefly
-            ann_text = f"{ch}"
-            if sff_val is not None:
-                ann_text += f"\n{round(sff_val, 3)}"
-            ann = ax.annotate(ann_text, (col, row), color='yellow', weight='bold',
-                              fontsize=9, ha='left', va='bottom')
-
-            # redraw and pause to show annotation
-            fig.canvas.draw_idle()
-
-            # remove annotation after a short time (use a timer)
-            def _remove_ann(evt=None):
-                try:
-                    ann.remove()
-                    fig.canvas.draw_idle()
-                except Exception:
-                    pass
-            fig.canvas.new_timer(interval=1500, callbacks=[(_remove_ann, (), {})]).start()
-
-        cid = fig.canvas.mpl_connect('button_press_event', onclick)
-
-        plt.show()
-
-        # disconnect handler after window closed
-        try:
-            fig.canvas.mpl_disconnect(cid)
-        except Exception:
-            pass
+        plt.tight_layout(rect=[0, 0, 0.9, 0.96])
+        
+        if export_folder:
+            save_file = os.path.join(export_folder, filename.replace('.fplan', '_visualization.png'))
+            plt.savefig(save_file, dpi=300)
+            print(f"Saved visualization to {save_file}")
+        else:
+            plt.show()
+        
+        
 
 
 if __name__ == "__main__":
