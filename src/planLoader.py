@@ -3,13 +3,13 @@ from typing import List
 
 import numpy as np
 
-def loadTrack(path: str) -> np.ndarray:
+def loadFloorPlan(path: str) -> np.ndarray:
     """
-    Load a track from a file where each character represents a cell.
+    Load a floor plan from a file where each character represents a cell.
     Reads the file line by line, handling potential whitespace.
 
-    :param path: Path to the track file.
-    :return: Track as a 2D numpy array of single characters (dtype='U1').
+    :param path: Path to the .fplan file.
+    :return: Floor plan as a 2D numpy array of single characters (dtype='U1').
              Returns an empty 2D array (shape=(0,0)) if the file is empty,
              not found, or cannot be processed.
     """
@@ -35,7 +35,7 @@ def loadTrack(path: str) -> np.ndarray:
         if not all(len(row) == first_len for row in lines_data):
             # If lengths differ, NumPy will create an array with dtype=object,
             # which might cause issues later. It's often better to enforce consistency.
-            print(f"Error: Track file '{path}' has inconsistent line lengths.")
+            print(f"Error: Floor Plan file '{path}' has inconsistent line lengths.")
             # Return an empty array or raise a ValueError
             # raise ValueError(f"Track file '{path}' has inconsistent line lengths.")
             return np.array([[]], dtype='U1').reshape(0, 0) # Returning empty for now
@@ -46,8 +46,8 @@ def loadTrack(path: str) -> np.ndarray:
         return matrixTrack
 
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"Track file not found at '{path}'") from e
+        raise FileNotFoundError(f"Floorplan file not found at '{path}'") from e
 
     except Exception as e:
-        raise Exception(f"Error loading track file '{path}': {e}") from e
+        raise Exception(f"Error loading fplan file '{path}': {e}") from e
     
