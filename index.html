@@ -170,10 +170,10 @@
 <body>
 
 <header>
-    <h1>floor Tools</h1>
+    <h1>Floor Tools</h1>
     <label>Mode
         <select id="modeSelect">
-            <option value="draw">Draw floor</option>
+            <option value="draw">Draw Floor plan</option>
             <option value="view">Visualize Files</option>
 
         </select>
@@ -193,6 +193,8 @@
         <label>File name <input type="text" id="filename" value="floor" placeholder="floor"/></label>
         <button id="createBtn">Create Grid</button>
         <button id="saveBtn" disabled>Save .fplan</button>
+        <label>Subdivide <input type="number" id="subdivideCount" min="1" max="50" value="1" style="width:60px"/></label>
+        <button id="autoGenBtn">Auto Generate</button>
         <label>Load floor <input type="file" id="loadfloorFile" accept=".fplan"/></label>
     </div>
     <div class="palette" id="palette"></div>
@@ -410,6 +412,70 @@ Solution files: floor_01_sol_one.csv, floor_01_sol_two.csv">
             a.click();
             URL.revokeObjectURL(url);
         };
+
+        // Auto-generate subdivided rooms
+        const autoGenBtn = document.getElementById('autoGenBtn');
+        const subdivideCountInput = document.getElementById('subdivideCount');
+
+        function autoGenerateSubrooms() {
+            const rows = [...document.querySelectorAll('#grid .row')];
+            if (!rows.length) {
+                alert('Create a grid first');
+                return;
+            }
+            const h = rows.length;
+            const w = rows[0].children.length;
+            // start with interior area (leave outer rim as walls)
+            let rooms = [{x: 1, y: 1, w: Math.max(0, w - 2), h: Math.max(0, h - 2)}];
+            let splits = parseInt(subdivideCountInput.value, 10) || 1;
+            splits = Math.max(1, splits);
+
+            for (let i = 0; i < splits; i++) {
+                // pick largest room to split
+                rooms.sort((a, b) => (b.w * b.h) - (a.w * a.h));
+                const room = rooms.shift();
+                if (!room) break;
+
+                const canV = room.w >= 3; // needs at least space to split and leave cells either side
+                const canH = room.h >= 3;
+                if (!canV && !canH) {
+                    rooms.push(room);
+                    break;
+                }
+
+                const orient = (canV && canH) ? (Math.random() < 0.5 ? 'v' : 'h') : (canV ? 'v' : 'h');
+
+                if (orient === 'v') {
+                    const min = room.x + 1;
+                    const max = room.x + room.w - 2;
+                    if (min > max) { rooms.push(room); continue; }
+                    const splitX = Math.floor(Math.random() * (max - min + 1)) + min;
+                    for (let yy = room.y; yy < room.y + room.h; yy++) {
+                        const cell = rows[yy].children[splitX];
+                        applyChar(cell, 'W');
+                    }
+                    const left = {x: room.x, y: room.y, w: splitX - room.x, h: room.h};
+                    const right = {x: splitX + 1, y: room.y, w: room.x + room.w - (splitX + 1), h: room.h};
+                    if (left.w > 0 && left.h > 0) rooms.push(left);
+                    if (right.w > 0 && right.h > 0) rooms.push(right);
+                } else {
+                    const min = room.y + 1;
+                    const max = room.y + room.h - 2;
+                    if (min > max) { rooms.push(room); continue; }
+                    const splitY = Math.floor(Math.random() * (max - min + 1)) + min;
+                    for (let xx = room.x; xx < room.x + room.w; xx++) {
+                        const cell = rows[splitY].children[xx];
+                        applyChar(cell, 'W');
+                    }
+                    const top = {x: room.x, y: room.y, w: room.w, h: splitY - room.y};
+                    const bottom = {x: room.x, y: splitY + 1, w: room.w, h: room.y + room.h - (splitY + 1)};
+                    if (top.w > 0 && top.h > 0) rooms.push(top);
+                    if (bottom.w > 0 && bottom.h > 0) rooms.push(bottom);
+                }
+            }
+        }
+
+        if (autoGenBtn) autoGenBtn.addEventListener('click', autoGenerateSubrooms);
     })();
     /****************************  Visualizer module  ***************************/
     (() => {
