@@ -26,10 +26,10 @@ class SpatialPool:
         self.id_to_idx[agent.id] = len(self.agents) - 1
     
     def remove(self, agent: Agent):
-        if agent.agent_id not in self.id_to_idx: return
+        if agent.id not in self.id_to_idx: return
 
         agent.state.done = True
-        self.finished_agents.append(agent)
+        self.finished_agents.append(agent) # TODO handle update_state in agents
 
         if self.grid.get((agent.state.x, agent.state.y)) == agent:
             del self.grid[(agent.state.x, agent.state.y)]
@@ -160,6 +160,7 @@ class Simulation:
 
         for agent, tx, ty in final_moves:
             self.agentmap.unsafe_update_grid(agent, tx, ty)
+            # TODO handle update_state in agents
 
     def is_completed(self):
         return all(map(lambda x: x.state.done, self.agentmap.agents))
