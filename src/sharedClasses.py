@@ -12,8 +12,8 @@ class Observation:
             raise ValueError(f"mooreNeighborhoodSFF must be 3x3, got {self.mooreNeigbhborhoodSFF.shape}")
 @dataclass
 class AgentState:
-    x_coord: int
-    y_coord: int
+    x: int
+    y: int
     done: bool = False
 
 @dataclass

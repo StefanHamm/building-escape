@@ -8,15 +8,15 @@
 #full moore neighborhood
 
 
-from sharedClasses import Observation, AgentState,AgentAction,Actions
+from sharedClasses import Observation, AgentState,Actions
 import numpy as np
 
 class Agent:
 
-    def __init__(self,agent_id, start_state,k,seed=42):
-        self.agent_id = agent_id
+    def __init__(self, id, start_state, k, rng: np.random.Generator):
+        self.id = id
         self.state = start_state
-        self.rng = np.random.default_rng(seed)
+        self.rng = rng
         self.k = k  # model parameter must be positive
         if self.k <= 0:
             raise ValueError("Parameter k must be positive")
@@ -32,24 +32,34 @@ class Agent:
         probability_matrix[1, 1] = 0
         # draw action based on the probability distribution
         flattened_probs = probability_matrix.flatten()
-        flattened_probs /= flattened_probs.sum()  # normalize to sum to 1
+        total_prob = flattened_probs.sum()  # normalize to sum to 1
+
+        # if surrounded by walls stay put/stuck
+        if total_prob == 0:
+            return (0, 0) # No valid move available
+        
+        flattened_probs /= total_prob
+
         chosen_index = self.rng.choice(len(flattened_probs), p=flattened_probs)
         move_direction = self.actions.MOORE_ACTIONS[chosen_index]
         print(chosen_index)
+        if move_direction is None:
+            return (0, 0)
         return move_direction  # adjust for offset
         
     def update_state(self, new_state:AgentState):
         self.memory.append(new_state)
         self.state = new_state
         if new_state.done:
-            print(f"Agent {self.agent_id} has reached the exit.")
+            print(f"Agent {self.id} has reached the exit.")
             return 1
         return 0
         
         
     
 if __name__ == "__main__":
-    agent = Agent(agent_id=1, start_state=AgentState(5, 5), k=1, seed=42)
+    rng = np.random.default_rng(42)
+    agent = Agent(id=1, start_state=AgentState(5, 5), k=1, rng=rng)
     obs = Observation(np.array([[0, np.inf, np.inf],
                                 [np.inf, 0.0, np.inf],
                                 [np.inf, np.inf, 1]]))
