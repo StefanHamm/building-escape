@@ -51,3 +51,18 @@ def loadFloorPlan(path: str) -> np.ndarray:
     except Exception as e:
         raise Exception(f"Error loading fplan file '{path}': {e}") from e
     
+    
+def load_sff_from_npy(path: str) -> np.ndarray:
+    """
+    Load a static floor field (SFF) from a .npy file.
+
+    :param path: Path to the .npy file.
+    :return: SFF as a 2D numpy array of floats.
+    """
+    try:
+        sff = np.load(path)
+        return sff
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"SFF file not found at '{path}'") from e
+    except Exception as e:
+        raise Exception(f"Error loading SFF file '{path}': {e}") from e

@@ -1,6 +1,6 @@
 from loader import loadFloorPlan
 import os
-from ssf import calculateSFF
+from src.sff import calculateSFF
 from visualize import visualizeFloorPlansWithSFF
 
 
