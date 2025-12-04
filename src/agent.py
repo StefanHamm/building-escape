@@ -13,7 +13,7 @@ import numpy as np
 
 class Agent:
 
-    def __init__(self, id, start_state, k, rng: np.random.Generator,vebose=0):
+    def __init__(self, id, start_state, k, rng: np.random.Generator,decisionType:str,vebose=0):
         self.id = id
         self.state = start_state
         self.verbose = vebose
@@ -23,16 +23,31 @@ class Agent:
             raise ValueError("Parameter k must be positive")
         self.memory = [self.state]  # to store past states or observations if needed
         self.actions = Actions()
+        self.decisionType = decisionType  # e.g., default, min_scaling, division_scaling
+        
         
    
     
     def decide_action(self, observation:Observation):
-        probability_matrix = np.exp(-self.k * observation.mooreNeigbhborhoodSFF) 
-        # set 11 to zero since it's the agent's current position
-        probability_matrix[1, 1] = 0
-        # draw action based on the probability distribution
+        observation.mooreNeighborhoodSFF[1,1] = np.inf
+        #swich case for self.decisionType
+        if self.decisionType == "default":
+            pass  # no modification
+        elif self.decisionType == "min_scaling":
+            #set 1,1 in moore neighborhood to inf to ignore it in min calculation
+            min_sff = np.min(observation.mooreNeighborhoodSFF)
+            observation.mooreNeighborhoodSFF -= min_sff
+        elif self.decisionType == "division_scaling":
+            min_sff = np.min(observation.mooreNeighborhoodSFF)
+            if min_sff !=0:
+                observation.mooreNeighborhoodSFF /= min_sff
+            
+        
+        probability_matrix = np.exp(-self.k * observation.mooreNeighborhoodSFF)
         flattened_probs = probability_matrix.flatten()
         total_prob = flattened_probs.sum()  # normalize to sum to 1
+        
+        
         if self.verbose >=1:
             print(probability_matrix)
         # if surrounded by walls stay put/stuck
