@@ -23,13 +23,13 @@ class AgentAction:
     
 @dataclass
 class Actions:
-    UP: tuple = (-1, 0)
-    DOWN: tuple = (1, 0)
-    LEFT: tuple = (0, -1)
-    RIGHT: tuple = (0, 1)
+    UP: tuple = (0, -1)
+    DOWN: tuple = (0, 1)
+    LEFT: tuple = (-1, 0)
+    RIGHT: tuple = (1, 0)
     UP_LEFT: tuple = (-1, -1)
-    UP_RIGHT: tuple = (-1, 1)
-    DOWN_LEFT: tuple = (1, -1)
+    UP_RIGHT: tuple = (1, -1)
+    DOWN_LEFT: tuple = (-1, 1)
     DOWN_RIGHT: tuple = (1, 1)
     
     # Map Moore neighborhood indices to actions

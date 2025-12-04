@@ -3,7 +3,7 @@ from helper import getAllWhiteCoords
 from sharedClasses import AgentState, Observation
 from agent import Agent
 
-from visualize import print_agents_on_floorplan
+#from visualize import print_agents_on_floorplan
 
 
 class SpatialPool:
@@ -82,7 +82,7 @@ class Simulation:
         selected_idx = self.rng.choice(len(free_space), size=actual_count, replace=False)
 
         for i, idx in enumerate(selected_idx):
-            (y,x) = free_space[idx]
+            (x,y) = free_space[idx]
             agent = Agent(i+1,AgentState(x,y),self.k, self.rng,self.verbose)
             self.agentmap.add(agent, x, y)
         
@@ -104,8 +104,8 @@ class Simulation:
         win_y_start = 1 - (y - y_start)
         win_y_end = win_y_start + (y_end - y_start)
         
-        window[win_y_start:win_y_end,win_x_start:win_x_end] = \
-            self.layout_sff[ y_start:y_end,x_start:x_end]
+        window[win_x_start:win_x_end, win_y_start:win_y_end] = \
+            self.layout_sff[x_start:x_end, y_start:y_end]
             
         return window
     
@@ -119,7 +119,8 @@ class Simulation:
     def step(self):
         # Phase 1: plan move
         proposals = {}
-        current_agents = list(self.agentmap.agents)
+        #current_agents = list(self.agentmap.agents)
+        current_agents = [a for a in self.agentmap.agents if not a.state.done]
         self.rng.shuffle(current_agents)
 
         for agent in current_agents:

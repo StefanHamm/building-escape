@@ -3,7 +3,72 @@ from simulation import Simulation
 from agent import Agent
 from floorEnvironment import FloorEnvironment
 import numpy as np
-from visualize import create_video_from_steps
+#from visualize import create_video_from_steps
+
+import time
+import sys
+import os
+
+def render_console(simulation, step_num=0):
+    """
+    Prints the grid state to console.
+    
+    Handles:
+    - Layout: numpy array of characters (dtype='U1').
+    - SFF: numpy array of floats (0.0 is Exit).
+    """
+    # --- Configuration ---
+    # Define what characters in your .fplan file count as walls
+    WALL_CHARS = {'#', '1', 'W', '@'} 
+    
+    # ANSI Colors for terminal output
+    RED = '\033[91m'     # Agents
+    GREEN = '\033[92m'   # Exits
+    WHITE = '\033[97m'   # Walls
+    RESET = '\033[0m'
+    
+    # Visual Blocks
+    WALL_BLOCK = f"{WHITE}██{RESET}" 
+    AGENT_BLOCK = f"{RED}AA{RESET}" 
+    EXIT_BLOCK = f"{GREEN}XX{RESET}"
+    EMPTY_BLOCK = "  " # Two spaces to match the width of "██" and "AA"
+
+    output_buffer = []
+    
+    # Header
+    active_count = len(simulation.agentmap)
+    finished_count = len(simulation.agentmap.finished_agents)
+    output_buffer.append(f"--- Step: {step_num:03d} | Active: {active_count} | Exited: {finished_count} ---")
+
+    rows, cols = simulation.x_dim, simulation.y_dim
+
+    for x in range(rows):
+        row_str = ""
+        for y in range(cols):
+            
+            agent = simulation.agentmap.get_at(x, y)
+            if agent is not None:
+                if agent.state.done == False:
+                    row_str += AGENT_BLOCK
+                else:
+                    row_str += EMPTY_BLOCK
+
+            
+            elif simulation.layout_sff[x, y] == 0:
+                row_str += EXIT_BLOCK
+                
+            elif simulation.floor_layout[x, y] in WALL_CHARS: 
+                row_str += WALL_BLOCK
+                
+            else:
+                row_str += EMPTY_BLOCK
+        
+        output_buffer.append(row_str)
+
+    full_frame = "\n".join(output_buffer)
+    
+    #os.system('cls' if os.name == 'nt' else 'clear')
+    print(full_frame)
 
 if __name__ == "__main__":
     sff_path = "data/floorPlansSSF/small_sff.npy"
@@ -13,13 +78,23 @@ if __name__ == "__main__":
     
     rng = np.random.default_rng(61)
     
-    Simulation_instance = Simulation(rng,floor_env.floor_layout,floor_env.floor_sff,15,5,5,2)
+    Simulation_instance = Simulation(rng,floor_env.floor_layout,floor_env.floor_sff,5,5,5,1)
+    render_console(Simulation_instance, 0)
+    time.sleep(1.0)
     
     
-    for step in range(10):
+    for step in range(20):
         Simulation_instance.step()
-    
-    create_video_from_steps("logs/steps/", "logs/video/simulation_output.mp4", fps=1)
+
+        render_console(Simulation_instance, step)
+        time.sleep(0.2)
+        
+        # Check completion
+        if Simulation_instance.is_completed():
+            print("\nALL AGENTS EVACUATED!")
+            break
+
+    #create_video_from_steps("logs/steps/", "logs/video/simulation_output.mp4", fps=1)
     
     
     
