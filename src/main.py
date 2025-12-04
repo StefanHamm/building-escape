@@ -29,9 +29,9 @@ def render_console(simulation, step_num=0):
     
     # Visual Blocks
     WALL_BLOCK = f"{WHITE}██{RESET}" 
-    AGENT_BLOCK = f"{RED}AA{RESET}" 
+    AGENT_BLOCK = f"{RED}(){RESET}" 
     EXIT_BLOCK = f"{GREEN}XX{RESET}"
-    EMPTY_BLOCK = "  " # Two spaces to match the width of "██" and "AA"
+    EMPTY_BLOCK = "  " 
 
     output_buffer = []
     
@@ -48,10 +48,7 @@ def render_console(simulation, step_num=0):
             
             agent = simulation.agentmap.get_at(x, y)
             if agent is not None:
-                if agent.state.done == False:
-                    row_str += AGENT_BLOCK
-                else:
-                    row_str += EMPTY_BLOCK
+                row_str += AGENT_BLOCK
 
             
             elif simulation.layout_sff[x, y] == 0:
@@ -78,12 +75,12 @@ if __name__ == "__main__":
     
     rng = np.random.default_rng(61)
     
-    Simulation_instance = Simulation(rng,floor_env.floor_layout,floor_env.floor_sff,5,5,5,1)
+    Simulation_instance = Simulation(rng,floor_env.floor_layout,floor_env.floor_sff,15,5,5,0)
     render_console(Simulation_instance, 0)
     time.sleep(1.0)
     
     
-    for step in range(20):
+    for step in range(100):
         Simulation_instance.step()
 
         render_console(Simulation_instance, step)

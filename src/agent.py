@@ -33,7 +33,7 @@ class Agent:
         # draw action based on the probability distribution
         flattened_probs = probability_matrix.flatten()
         total_prob = flattened_probs.sum()  # normalize to sum to 1
-        if self.verbose >=0:
+        if self.verbose >=1:
             print(probability_matrix)
         # if surrounded by walls stay put/stuck
         if total_prob == 0:
@@ -44,7 +44,7 @@ class Agent:
         chosen_index = self.rng.choice(len(flattened_probs), p=flattened_probs)
         move_direction = self.actions.MOORE_ACTIONS[chosen_index]
         
-        if self.verbose >=0:
+        if self.verbose >=1:
             print(move_direction)
             
         

@@ -124,10 +124,12 @@ class Simulation:
         self.rng.shuffle(current_agents)
 
         for agent in current_agents:
-            print("TSTE")
+            if self.verbose >= 1:
+                print("TSTE")
             obs = Observation(self._get_moore_neighborhood(agent.state.x, agent.state.y))
             dy,dx = agent.decide_action(obs)
-            print(agent.verbose)
+            if self.verbose >= 1:
+                print(agent.verbose)
             
             target_x = agent.state.x + dx
             target_y = agent.state.y + dy
@@ -162,8 +164,8 @@ class Simulation:
 
         # Phase 3: Execute
         for agent,tx,ty in agents_to_remove:
-            newState = AgentState(tx,ty,True)
-            agent.update_state(newState)
+            #newState = AgentState(tx,ty,True)
+            #agent.update_state(newState)
             self.agentmap.remove(agent)
             
         
@@ -190,8 +192,8 @@ class Simulation:
         for agent, tx, ty in final_moves:
             
             self.agentmap.unsafe_update_grid(agent, tx, ty)
-            newState = AgentState(tx,ty,False)
-            agent.update_state(newState)
+            #newState = AgentState(tx,ty,False)
+            #agent.update_state(newState)
             # TODO handle update_state in agents
             
         if self.verbose >=2:
