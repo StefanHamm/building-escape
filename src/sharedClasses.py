@@ -5,11 +5,11 @@ import numpy as np
 MOORENEIGHBORHOOD_SIZE = 3
 @dataclass
 class Observation:
-    mooreNeigbhborhoodSFF: np.ndarray #3x3
+    mooreNeighborhoodSFF: np.ndarray #3x3
     
     def __post_init__(self):
-        if self.mooreNeigbhborhoodSFF.shape != (MOORENEIGHBORHOOD_SIZE, MOORENEIGHBORHOOD_SIZE):
-            raise ValueError(f"mooreNeighborhoodSFF must be 3x3, got {self.mooreNeigbhborhoodSFF.shape}")
+        if self.mooreNeighborhoodSFF.shape != (MOORENEIGHBORHOOD_SIZE, MOORENEIGHBORHOOD_SIZE):
+            raise ValueError(f"mooreNeighborhoodSFF must be 3x3, got {self.mooreNeighborhoodSFF.shape}")
 @dataclass
 class AgentState:
     x: int
