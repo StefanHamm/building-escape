@@ -13,9 +13,10 @@ import numpy as np
 
 class Agent:
 
-    def __init__(self, id, start_state, k, rng: np.random.Generator):
+    def __init__(self, id, start_state, k, rng: np.random.Generator,vebose=0):
         self.id = id
         self.state = start_state
+        self.verbose = vebose
         self.rng = rng
         self.k = k  # model parameter must be positive
         if self.k <= 0:
@@ -28,12 +29,12 @@ class Agent:
     def decide_action(self, observation:Observation):
         probability_matrix = np.exp(-self.k * observation.mooreNeigbhborhoodSFF) 
         # set 11 to zero since it's the agent's current position
-        print(probability_matrix)
         probability_matrix[1, 1] = 0
         # draw action based on the probability distribution
         flattened_probs = probability_matrix.flatten()
         total_prob = flattened_probs.sum()  # normalize to sum to 1
-
+        if self.verbose >=0:
+            print(probability_matrix)
         # if surrounded by walls stay put/stuck
         if total_prob == 0:
             return (0, 0) # No valid move available
@@ -42,7 +43,12 @@ class Agent:
 
         chosen_index = self.rng.choice(len(flattened_probs), p=flattened_probs)
         move_direction = self.actions.MOORE_ACTIONS[chosen_index]
-        print(chosen_index)
+        
+        if self.verbose >=0:
+            print(move_direction)
+            
+        
+        
         if move_direction is None:
             return (0, 0)
         return move_direction  # adjust for offset
@@ -51,6 +57,7 @@ class Agent:
         self.memory.append(new_state)
         self.state = new_state
         if new_state.done:
+            
             print(f"Agent {self.id} has reached the exit.")
             return 1
         return 0

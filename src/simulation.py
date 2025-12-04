@@ -3,6 +3,8 @@ from helper import getAllWhiteCoords
 from sharedClasses import AgentState, Observation
 from agent import Agent
 
+from visualize import print_agents_on_floorplan
+
 
 class SpatialPool:
     def __init__(self):
@@ -10,6 +12,7 @@ class SpatialPool:
         self.finished_agents = [] # Archive for post-processing
         self.id_to_idx = {} # ID -> Index (fast deletion)
         self.grid = {} # (x, y) -> Agent for spacial lookup
+        
     
     def __iter__(self):
         return iter(self.agents)
@@ -51,15 +54,21 @@ class SpatialPool:
         Updates coordinate without checking collision. 
         Used only during the batch update phase where logic is pre-calculated.
         """
-        del self.grid[(agent.state.x, agent.state.y)]
+        old_pos = (agent.state.x, agent.state.y)
+        if old_pos and self.grid.get(old_pos) == agent:
+            del self.grid[(agent.state.x, agent.state.y)]
         self.grid[(new_x, new_y)] = agent
         agent.state.x = new_x
         agent.state.y = new_y
+    
 
 class Simulation:
-    def __init__(self, rng: np.random.Generator, layout, layout_sff, agent_count, k, xi):
+    def __init__(self, rng: np.random.Generator, floor_layout, layout_sff, agent_count, k, xi,verbose=0):
+        
+        self.verbose = verbose # 1: print basic info, 2: detailed per-step info 0: silent
+        self.step_count = 0
         self.rng = rng
-        self.layout = layout
+        self.floor_layout = floor_layout
         self.layout_sff = layout_sff
         self.agent_count = agent_count
         self.k = k
@@ -68,14 +77,18 @@ class Simulation:
         self.y_dim = self.floor_layout.shape[1]
         self.agentmap = SpatialPool()
 
-        free_space = list(getAllWhiteCoords(self.layout))
+        free_space = list(getAllWhiteCoords(self.floor_layout))
         actual_count = min(len(free_space), self.agent_count) # Ensure we don't try to spawn more agents than free space
         selected_idx = self.rng.choice(len(free_space), size=actual_count, replace=False)
 
         for i, idx in enumerate(selected_idx):
-            (x,y) = free_space[idx]
-            agent = Agent(i+1,AgentState(x,y),self.k, self.rng)
+            (y,x) = free_space[idx]
+            agent = Agent(i+1,AgentState(x,y),self.k, self.rng,self.verbose)
             self.agentmap.add(agent, x, y)
+        
+        if len(self.agentmap) < self.agent_count:
+            if self.verbose >=1:
+                print(f"Warning: Only {len(self.agentmap)} agents were placed due to limited free space.")
 
     def _get_moore_neighborhood(self, x, y):
         # Create a 3x3 window initialized with Infinity (Walls)
@@ -91,8 +104,8 @@ class Simulation:
         win_y_start = 1 - (y - y_start)
         win_y_end = win_y_start + (y_end - y_start)
         
-        window[win_x_start:win_x_end, win_y_start:win_y_end] = \
-            self.layout_sff[x_start:x_end, y_start:y_end]
+        window[win_y_start:win_y_end,win_x_start:win_x_end] = \
+            self.layout_sff[ y_start:y_end,x_start:x_end]
             
         return window
     
@@ -110,8 +123,10 @@ class Simulation:
         self.rng.shuffle(current_agents)
 
         for agent in current_agents:
+            print("TSTE")
             obs = Observation(self._get_moore_neighborhood(agent.state.x, agent.state.y))
-            dx, dy = agent.decide_action(obs)
+            dy,dx = agent.decide_action(obs)
+            print(agent.verbose)
             
             target_x = agent.state.x + dx
             target_y = agent.state.y + dy
@@ -121,8 +136,10 @@ class Simulation:
             proposals[(target_x, target_y)].append(agent)
 
         # Phase 2: resolve collisions
-        agents_to_move = []   
-        agents_to_remove = []
+        # agents_to_move = []   
+        # agents_to_remove = []
+        agents_to_move: List[Tuple[Agent, int, int]] = []
+        agents_to_remove: List[Tuple[Agent, int, int]] = []
 
         for target, candidates in proposals.items():
             n = len(candidates)
@@ -138,29 +155,49 @@ class Simulation:
                 # Check for exit (SFF == 0)
                 if 0 <= tx < self.x_dim and 0 <= ty < self.y_dim:
                     if self.layout_sff[tx, ty] == 0:
-                        agents_to_remove.append(winner)
+                        agents_to_remove.append((winner,tx,ty))
                     else:
                         agents_to_move.append((winner, tx, ty))
 
         # Phase 3: Execute
-        for agent in agents_to_remove:
+        for agent,tx,ty in agents_to_remove:
+            newState = AgentState(tx,ty,True)
+            agent.update_state(newState)
             self.agentmap.remove(agent)
+            
         
         final_moves = []
-        moving_agent_ids = {a.id for a in agents_to_remove}
+        removed_agent_ids = {a.id for a,_,_ in agents_to_remove}
+        moving_agent_ids = {a.id for a,_,_ in agents_to_move}
         for (a, _, _) in agents_to_move:
             moving_agent_ids.add(a.id)
         
         for agent, tx, ty in agents_to_move:
+            
+            if agent.id in removed_agent_ids:
+                continue  # Skip agents that have been removed
+            
+            
             occupier = self.agentmap.get_at(tx, ty)
             
             # Move only if the target is empty OR the current occupier is also moving away
             if occupier is None or occupier.id in moving_agent_ids:
+                # newState = AgentState(tx,ty,False)
+                # agent.update_state(newState)
                 final_moves.append((agent, tx, ty))
 
         for agent, tx, ty in final_moves:
+            
             self.agentmap.unsafe_update_grid(agent, tx, ty)
+            newState = AgentState(tx,ty,False)
+            agent.update_state(newState)
             # TODO handle update_state in agents
+            
+        if self.verbose >=2:
+            # file path is logs/steps/step_{self.step_count}.png
+            filePath = f"logs/steps/{self.step_count}.png"
+            print_agents_on_floorplan(self.floor_layout, self.agentmap.agents,filePath)
+        self.step_count += 1
 
     def is_completed(self):
         return all(map(lambda x: x.state.done, self.agentmap.agents))
