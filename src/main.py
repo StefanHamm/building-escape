@@ -3,11 +3,14 @@ from simulation import Simulation
 from agent import Agent
 from floorEnvironment import FloorEnvironment
 import numpy as np
-#from visualize import create_video_from_steps
-
+from visualize import create_video_from_steps, print_agents_on_floorplan, floorplan_to_rgb
+import shutil
 import time
 import sys
 import os
+import multiprocessing
+import copy
+import timeit
 
 def render_console(simulation, step_num=0):
     """
@@ -67,32 +70,107 @@ def render_console(simulation, step_num=0):
     #os.system('cls' if os.name == 'nt' else 'clear')
     print(full_frame)
 
-if __name__ == "__main__":
-    sff_path = "data/floorPlansSSF/small_sff.npy"
-    floor_path = "data/floorPlans/small.fplan"
+def save_frame_async(floor_layout, agents, step, export_path, base_rgb_img=None):
+    """Worker function to save frame."""
+    print_agents_on_floorplan(floor_layout, agents, step=step, export_path=export_path, base_rgb=base_rgb_img)
 
+RENDER = True
+AGENTS = 500
+
+if __name__ == "__main__":
+    total_start = timeit.default_timer()
+    
+    #sff_path = "data/floorPlansSSF/small_sff.npy"
+    #floor_path = "data/floorPlans/small.fplan"
+    
+    # clea
+    
+    floor = "freihausEG"
+    sff_path = f"data/floorPlansSSF/{floor}_sff.npy"
+    floor_path = f"data/floorPlans/{floor}.fplan"
     floor_env = FloorEnvironment(seed=42, floor_layout_path=floor_path, floor_sff_path=sff_path, agent_count=5, k=0.1)
     
-    rng = np.random.default_rng(61)
+    rng = np.random.default_rng()
+
+    Simulation_instance = Simulation(rng,floor_env.floor_layout,floor_env.floor_sff,AGENTS,5,10,0)
     
-    Simulation_instance = Simulation(rng,floor_env.floor_layout,floor_env.floor_sff,15,5,5,0)
+    # Precompute RGB floorplan once
+    base_rgb_img = None
+    if RENDER:
+        base_rgb_img = floorplan_to_rgb(Simulation_instance.floor_layout)
+
     render_console(Simulation_instance, 0)
     time.sleep(1.0)
     
+    pool = None
+    async_results = []
+    if RENDER:
+        # clear the original logs/steps folder BEFORE creating the pool
+        log_dir = f"logs/steps/{floor}/"
+        os.makedirs(log_dir, exist_ok=True)
+        for filename in os.listdir(log_dir):
+            file_path = os.path.join(log_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Warning: Failed to delete {file_path}. Reason: {e}")
+
+        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        export_path = f"logs/steps/{floor}/0.png"
+        # Pass copy of agents since objects are modified in main process
+        agents_copy = copy.deepcopy(Simulation_instance.agentmap.agents)
+        res = pool.apply_async(save_frame_async, (Simulation_instance.floor_layout, agents_copy, 0, export_path, base_rgb_img))
+        async_results.append(res)
     
-    for step in range(100):
+    for step in range(400):
         Simulation_instance.step()
 
         render_console(Simulation_instance, step)
-        time.sleep(0.2)
         
         # Check completion
         if Simulation_instance.is_completed():
             print("\nALL AGENTS EVACUATED!")
             break
+        
+        if RENDER:
+            # Clean up finished tasks to manage RAM
+            async_results = [res for res in async_results if not res.ready()]
+            
+            # Throttle main loop if rendering falls behind (limit to 2x CPU count)
+            # This prevents unlimited RAM usage from queued up agent copies
+            while len(async_results) >= multiprocessing.cpu_count() * 2:
+                 time.sleep(0.05)
+                 async_results = [res for res in async_results if not res.ready()]
 
-    #create_video_from_steps("logs/steps/", "logs/video/simulation_output.mp4", fps=1)
+            export_path = f"logs/steps/{floor}/{step+1}.png"
+            # Pass copy of agents since objects are modified in main process
+            agents_copy = copy.deepcopy(Simulation_instance.agentmap.agents)
+            res = pool.apply_async(save_frame_async, (Simulation_instance.floor_layout, agents_copy, step+1, export_path, base_rgb_img))
+            async_results.append(res)
+            
+    if RENDER:
+        # render last frame
+        export_path = f"logs/steps/{floor}/{step+2}.png"
+        agents_copy = copy.deepcopy(Simulation_instance.agentmap.agents)
+        res = pool.apply_async(save_frame_async, (Simulation_instance.floor_layout, agents_copy, step+2, export_path, base_rgb_img))
+        async_results.append(res)
+        
     
+    if RENDER and pool:
+        print("Waiting for image generation to finish...")
+        for res in async_results:
+            res.get()
+        pool.close()
+        pool.join()
+        
+        os.makedirs("logs/video/", exist_ok=True)
+        create_video_from_steps(f"logs/steps/{floor}/", f"logs/video/{floor}.mp4", fps=5)
     
-    
-    
+    total_end = timeit.default_timer()
+    print(f"Total simulation and rendering time: {total_end - total_start:.2f} seconds")
+
+
+

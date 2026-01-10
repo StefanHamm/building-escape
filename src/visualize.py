@@ -11,7 +11,7 @@ from matplotlib.patches import FancyArrowPatch,FancyArrow
 from loader import loadFloorPlan
 
 
-def _floorplan_to_rgb(fplan: np.ndarray) -> np.ndarray:
+def floorplan_to_rgb(fplan: np.ndarray) -> np.ndarray:
     """Convert a floorplan char array to an RGB image (rows, cols, 3).
     Mapping:
       'W' -> black (wall)
@@ -34,6 +34,9 @@ def _floorplan_to_rgb(fplan: np.ndarray) -> np.ndarray:
             else:
                 img[r, c] = (0.7, 0.7, 0.7)
     return img
+
+def _floorplan_to_rgb(fplan: np.ndarray) -> np.ndarray:
+    return floorplan_to_rgb(fplan)
 
 
 def _compute_direction_to_lowest_neighbor(sff: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -291,29 +294,36 @@ def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients
         
 from sharedClasses import AgentState
 
-def print_agents_on_floorplan(fplan: np.ndarray, agents: list[AgentState], export_path: Optional[str] = None):
+def print_agents_on_floorplan(fplan: np.ndarray, agents: list[AgentState], step: int = 0, export_path: Optional[str] = None, base_rgb: Optional[np.ndarray] = None):
     """Visualize agents on a floorplan as a still image.
     
     Args:
-        fplan: The floorplan character array
+        fplan: The floorplan character array (used for dimensions)
         agents: List of AgentState objects with x, y coordinates
+        step: Current simulation step
         export_path: Optional path to save the image. If None, displays with plt.show()
+        base_rgb: Optional pre-computed RGB image of the floorplan. If None, it will be computed.
     """
-    # Convert floorplan to RGB
-    rgb = _floorplan_to_rgb(fplan)
+    # Use pre-computed RGB if provided, otherwise compute it
+    if base_rgb is not None:
+        rgb = base_rgb
+    else:
+        rgb = _floorplan_to_rgb(fplan)
     
     # Create figure and display floorplan
-    fig, ax = plt.subplots(figsize=(max(10, fplan.shape[1] / 2.5), max(10, fplan.shape[0] / 2.5)))
+    # Reduced figure size slightly to help with memory and video encoding issues
+    width, height = fplan.shape[1] / 3.0, fplan.shape[0] / 3.0
+    fig, ax = plt.subplots(figsize=(max(8, width), max(8, height)))
     ax.imshow(rgb, origin='upper', interpolation='nearest')
     
     # Draw agents as blue circles
     for agent in agents:
         if agent.state.done:
             continue  # Skip agents that have exited
-        circle = plt.Circle((agent.state.x, agent.state.y), radius=0.3, color='blue', alpha=0.8, zorder=5)
+        circle = plt.Circle((agent.state.y,agent.state.x), radius=0.3, color='blue', alpha=0.8, zorder=5)
         ax.add_patch(circle)
         # Add agent index text
-        ax.text(agent.state.x, agent.state.y, str(agents.index(agent)), color='white', 
+        ax.text(agent.state.y,agent.state.x, str(agents.index(agent)), color='white', 
                 ha='center', va='center', fontsize=8, fontweight='bold', zorder=6)
     
     # Setup grid and labels
@@ -323,16 +333,17 @@ def print_agents_on_floorplan(fplan: np.ndarray, agents: list[AgentState], expor
     ax.grid(which='minor', color='lightgray', linestyle='-', linewidth=0.3)
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title(f'Agents on Floorplan ({len(agents)} agents)')
+    ax.set_title(f'Step: {step} | Agents on Floorplan ({len(agents)} agents)')
     
     # Save or show
     if export_path:
-        plt.savefig(export_path, dpi=300, bbox_inches='tight')
+        plt.savefig(export_path, dpi=100, bbox_inches='tight') # Reduced DPI to Help with memory and video encoding
         print(f"Saved agent visualization to {export_path}")
+        plt.close(fig) # Explicitly close the figure to free memory
     else:
         plt.show()
 
-
+import imageio
 def create_video_from_steps(image_folder: str, output_path: Optional[str] = None, fps: int = 10):
     """Create a video from step images in a folder.
     
@@ -344,8 +355,6 @@ def create_video_from_steps(image_folder: str, output_path: Optional[str] = None
         output_path: Path to save the video. If None, saves as 'simulation.mp4' in the image folder
         fps: Frames per second for the video (default: 10)
     """
-    import imageio
-    
     if not os.path.exists(image_folder):
         print(f"Image folder not found: {image_folder}")
         return
@@ -364,11 +373,22 @@ def create_video_from_steps(image_folder: str, output_path: Optional[str] = None
     
     # Read images and create video
     print(f"Creating video from {len(image_files)} images...")
-    writer = imageio.get_writer(output_path, fps=fps)
+    
+    # Use macro_block_size=16 to ensure dimensions are compatible with h.264 encoder
+    writer = imageio.get_writer(output_path, fps=fps, macro_block_size=16)
     
     for image_file in image_files:
         image_path = os.path.join(image_folder, image_file)
         image = imageio.imread(image_path)
+        
+        # Check and resize if dimensions are odd
+        h, w = image.shape[:2]
+        if h % 2 != 0 or w % 2 != 0:
+             # Basic trim to make even dimensions
+             new_h = h - (h % 2)
+             new_w = w - (w % 2)
+             image = image[:new_h, :new_w]
+
         writer.append_data(image)
     
     writer.close()

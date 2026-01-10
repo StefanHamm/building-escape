@@ -1,5 +1,5 @@
 import numpy as np
-from helper import getAllWhiteCoords
+from helper import getAllWhiteCoords, getSafeWhiteCoords
 from sharedClasses import AgentState, Observation
 from agent import Agent
 
@@ -77,7 +77,7 @@ class Simulation:
         self.y_dim = self.floor_layout.shape[1]
         self.agentmap = SpatialPool()
 
-        free_space = list(getAllWhiteCoords(self.floor_layout))
+        free_space = list(getSafeWhiteCoords(self.floor_layout,self.layout_sff))
         actual_count = min(len(free_space),
                            self.agent_count)  # Ensure we don't try to spawn more agents than free space
         selected_idx = self.rng.choice(len(free_space), size=actual_count, replace=False)
