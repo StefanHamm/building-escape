@@ -157,6 +157,27 @@ def _draw_gradient_arrows(ax, fplan: np.ndarray, sff: np.ndarray,
                         color='white', alpha=0.7, zorder=10
                     )
                     ax.add_patch(arrow)
+                    
+                    
+
+def plot_heatmap(mat: np.ndarray, xvals=None, yvals=None, xlabel="xi", ylabel="k",
+                 title="Mean evacuation time", out_path: str | None = None):
+    """Simple heatmap saver — does not alter existing project files."""
+    fig, ax = plt.subplots(figsize=(6,5))
+    im = ax.imshow(mat, origin="lower", interpolation="nearest", aspect="auto")
+    ax.set_xlabel(xlabel); ax.set_ylabel(ylabel); ax.set_title(title)
+    if xvals is not None:
+        ax.set_xticks(np.arange(len(xvals))); ax.set_xticklabels([str(x) for x in xvals])
+    if yvals is not None:
+        ax.set_yticks(np.arange(len(yvals))); ax.set_yticklabels([str(y) for y in yvals])
+    cbar = plt.colorbar(im, ax=ax); cbar.set_label(title)
+    plt.tight_layout()
+    if out_path:
+        fig.savefig(out_path)
+        plt.close(fig)
+    return fig, ax
+
+
 
 
 def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients: bool = True, export_folder: Optional[str] = None):
