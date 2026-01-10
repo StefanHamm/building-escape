@@ -31,7 +31,7 @@ Visualizations are automatically created and saved in the `data/floorPlanSSFVisu
 
 ## Example Simulation Video
 
-<video controls width="600">
-  <source src="logs/video/freihausEG.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+> [Download/Watch the simulation video (MP4, 5 FPS)](logs/video/freihausEG.mp4)
+
+
+# ![Simulation Video](logs/video/freihausEG.gif)
