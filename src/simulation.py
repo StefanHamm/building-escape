@@ -1,4 +1,5 @@
 import dataclasses
+import random
 
 import numpy as np
 from helper import getSafeWhiteCoords
@@ -91,19 +92,45 @@ class Simulation:
         self.agentmap = SpatialPool()
         self.metrics = Metrics()
 
+        # 1. Get all traversable coordinates
         free_space = list(getSafeWhiteCoords(self.floor_layout, self.layout_sff))
-        actual_count = min(len(free_space),
-                           self.agent_count)  # Ensure we don't try to spawn more agents than free space
-        selected_idx = self.rng.choice(len(free_space), size=actual_count, replace=False)
+        actual_target = min(len(free_space), self.agent_count)
 
-        for i, idx in enumerate(selected_idx):
-            (x, y) = free_space[idx]
+        # 2. Cluster Spawning Logic
+        selected_coords = []
+        available_pool = free_space.copy()
+
+        while len(selected_coords) < actual_target:
+            # Pick a random "seed" from the remaining available space
+            seed_idx = self.rng.choice(len(available_pool))
+            seed_coord = available_pool.pop(seed_idx)
+            selected_coords.append(seed_coord)
+
+            # Determine how many more agents to add to this specific cluster
+            remaining_needed = actual_target - len(selected_coords)
+            current_cluster_target = min(random.randint(1, 20), remaining_needed, len(available_pool))
+
+            if current_cluster_target > 0:
+                # Calculate Euclidean distance from all remaining points to the seed
+                coords_array = np.array(available_pool)
+                distances = np.linalg.norm(coords_array - np.array(seed_coord), axis=1)
+
+                # Get indices of the closest points
+                closest_indices = np.argsort(distances)[:current_cluster_target]
+
+                # Pull them out of the available pool and add to our selection
+                # We sort indices in reverse to pop correctly without shifting index references
+                for idx in sorted(closest_indices, reverse=True):
+                    selected_coords.append(available_pool.pop(idx))
+
+        # 3. Place the agents
+        for i, (x, y) in enumerate(selected_coords):
             agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, self.verbose)
             self.agentmap.add(agent, x, y)
 
         if len(self.agentmap) < self.agent_count:
             if self.verbose >= 1:
-                print(f"Warning: Only {len(self.agentmap)} agents were placed due to limited free space.")
+                print(f"Warning: Only {len(self.agentmap)} agents were placed.")
 
     def _get_moore_neighborhood(self, x, y):
         # Create a 3x3 window initialized with Infinity (Walls)

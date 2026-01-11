@@ -14,9 +14,10 @@ def findExits(floorPlan: np.ndarray) -> list[tuple[int, int]]:
     rows, cols = floorPlan.shape
     for r in range(rows):
         for c in range(cols):
-            if floorPlan[r, c] == 'E':  
+            if floorPlan[r, c] == 'E':
                 exits.append((r, c))
     return exits
+
 
 def getAllWhiteCoords(floorPlan: np.ndarray) -> set[tuple[int, int]]:
     """Gets all coordinates of white (free) cells in the floor plan.
@@ -31,17 +32,18 @@ def getAllWhiteCoords(floorPlan: np.ndarray) -> set[tuple[int, int]]:
     rows, cols = floorPlan.shape
     for r in range(rows):
         for c in range(cols):
-            if floorPlan[r, c] == 'F':  
+            if floorPlan[r, c] == 'F':
                 white_coords.add((r, c))
     return white_coords
 
-def getSafeWhiteCoords(floorPlan: np.ndarray, layoutSFF: np.ndarray ) -> set[tuple[int, int]]:
+
+def getSafeWhiteCoords(floorPlan: np.ndarray, layoutSFF: np.ndarray) -> set[tuple[int, int]]:
     # only return white coords that have sff<np.inf (not surrounded by walls)
     safe_white_coords = set()
     rows, cols = floorPlan.shape
     for r in range(rows):
         for c in range(cols):
-            if floorPlan[r, c] == 'F' and layoutSFF[r, c] < np.inf:  
+            if floorPlan[r, c] == 'F' and layoutSFF[r, c] < np.inf:
                 safe_white_coords.add((r, c))
-                
+
     return safe_white_coords

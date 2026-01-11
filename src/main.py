@@ -78,8 +78,8 @@ def save_frame_async(floor_layout, agents, step, export_path, base_rgb_img=None)
 
 
 RENDER = True
-AGENTS = 100
-FLOOR = "t4_pillar"
+AGENTS = 150
+FLOOR = "freihausEG"
 
 if __name__ == "__main__":
     total_start = timeit.default_timer()
