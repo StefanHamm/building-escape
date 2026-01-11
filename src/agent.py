@@ -11,40 +11,67 @@ import numpy as np
 
 class Agent:
 
-    def __init__(self, id, start_state, k, rng: np.random.Generator, decisionType: str, vebose=0):
+    def __init__(self, id, start_state, k, rng: np.random.Generator, decisionType: str, all_goals_sff: np.ndarray,
+                 personalized_sff: np.ndarray):
         self.id = id
         self.state = start_state
-        self.verbose = vebose
         self.rng = rng
         # make agents randomly more greedy
-        self.k = max(0.3, np.random.normal(loc=k, scale=k / 3))
+        self.k = max(0.3, self.rng.normal(loc=k, scale=k / 3))
         if self.k <= 0:
             raise ValueError("Parameter k must be positive")
         self.memory = [self.state]  # to store past states or observations if needed
         self.actions = Actions()
         self.decisionType = decisionType  # e.g., default, min_scaling, division_scaling
-        self.mobility = np.clip(np.random.normal(0.8, 0.2), 0.3, 1.0)
+        self.mobility = np.clip(self.rng.normal(0.8, 0.2), 0.3, 1.0)
+        self.all_goals_sff = all_goals_sff
+        self.personalized_sff = personalized_sff
 
-    def decide_action(self, observation: Observation):
-        observation.mooreNeighborhoodSFF[1, 1] = np.inf
+    def _get_moore_neighborhood(self, size=3):
+        # Create a window initialized with Infinity (Walls)
+        window = np.full((size, size), np.inf)
+
+        # Determine bounds
+        x_start, x_end = max(0, self.state.x - 1), min(self.all_goals_sff.shape[0], self.state.x + 2)
+        y_start, y_end = max(0, self.state.y - 1), min(self.all_goals_sff.shape[1], self.state.y + 2)
+
+        # Determine placement in window
+        win_x_start = 1 - (self.state.x - x_start)
+        win_x_end = win_x_start + (x_end - x_start)
+        win_y_start = 1 - (self.state.y - y_start)
+        win_y_end = win_y_start + (y_end - y_start)
+
+        if self.all_goals_sff[self.state.x, self.state.y] <= 5:
+            # Agents close to exit can see it, so they use it
+            sff = self.all_goals_sff
+        else:
+            # Agents not close to exit choose one they know no matter how far
+            sff = self.personalized_sff
+        window[win_x_start:win_x_end, win_y_start:win_y_end] = sff[x_start:x_end, y_start:y_end]
+
+        return window
+
+    def decide_action(self):
+
+        movement = Observation(self._get_moore_neighborhood())
+
+        movement.mooreNeighborhoodSFF[1, 1] = np.inf
         # swich case for self.decisionType
         if self.decisionType == "default":
             pass  # no modification
         elif self.decisionType == "min_scaling":
             # set 1,1 in moore neighborhood to inf to ignore it in min calculation
-            min_sff = np.min(observation.mooreNeighborhoodSFF)
-            observation.mooreNeighborhoodSFF -= min_sff
+            min_sff = np.min(movement.mooreNeighborhoodSFF)
+            movement.mooreNeighborhoodSFF -= min_sff
         elif self.decisionType == "division_scaling":
-            min_sff = np.min(observation.mooreNeighborhoodSFF)
+            min_sff = np.min(movement.mooreNeighborhoodSFF)
             if min_sff != 0:
-                observation.mooreNeighborhoodSFF /= min_sff
+                movement.mooreNeighborhoodSFF /= min_sff
 
-        probability_matrix = np.exp(-self.k * observation.mooreNeighborhoodSFF)
+        probability_matrix = np.exp(-self.k * movement.mooreNeighborhoodSFF)
         flattened_probs = probability_matrix.flatten()
         total_prob = flattened_probs.sum()  # normalize to sum to 1
 
-        if self.verbose >= 1:
-            print(probability_matrix)
         # if surrounded by walls stay put/stuck
         if total_prob == 0:
             return (0, 0)  # No valid move available
@@ -53,9 +80,6 @@ class Agent:
 
         chosen_index = self.rng.choice(len(flattened_probs), p=flattened_probs)
         move_direction = self.actions.MOORE_ACTIONS[chosen_index]
-
-        if self.verbose >= 1:
-            print(move_direction)
 
         if move_direction is None:
             return (0, 0)

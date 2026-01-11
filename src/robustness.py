@@ -18,7 +18,7 @@ def run_monte_carlo(
         sim = Simulation(
             rng=rng,
             floor_layout=floor_layout,
-            layout_sff=layout_sff,
+            goal_specific_sffs=layout_sff,
             agent_count=agent_count,
             k=k,
             xi=xi,
@@ -57,7 +57,7 @@ def run_spatial_heatmap(
         sim = Simulation(
             rng=rng,
             floor_layout=floor_layout,
-            layout_sff=layout_sff,
+            goal_specific_sffs=layout_sff,
             agent_count=agent_count,
             k=k,
             xi=xi,

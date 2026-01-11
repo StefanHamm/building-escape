@@ -1,7 +1,8 @@
 # from floorEnvironment import FloorEnvironment
+import glob
+
 from simulation import Simulation
 from agent import Agent
-from floorEnvironment import FloorEnvironment
 import numpy as np
 from visualize import create_video_from_steps, print_agents_on_floorplan, floorplan_to_rgb
 import shutil
@@ -11,6 +12,7 @@ import os
 import multiprocessing
 import copy
 import timeit
+import loader as ld
 
 
 def render_console(simulation, step_num=0):
@@ -84,20 +86,26 @@ FLOOR = "freihausEG"
 if __name__ == "__main__":
     total_start = timeit.default_timer()
 
-    sff_path = f"data/floorPlansSSF/{FLOOR}_sff.npy"
+    sffs = [ld.load_sff_from_npy(x) for x in glob.glob(f"data/floorPlansSSF/{FLOOR}_sff_*.npy")]
     floor_path = f"data/floorPlans/{FLOOR}.fplan"
-    floor_env = FloorEnvironment(seed=42, floor_layout_path=floor_path, floor_sff_path=sff_path)
 
     rng = np.random.default_rng()
-
-    simulation = Simulation(rng, floor_env.floor_layout, floor_env.floor_sff, AGENTS, 5, 0.5, 0)
+    simulation = Simulation(
+        rng,
+        ld.loadFloorPlan(floor_path),
+        ld.load_sff_from_npy(f"data/floorPlansSSF/{FLOOR}_sff.npy"),
+        sffs,
+        AGENTS,
+        5,
+        0.5
+    )
 
     # Precompute RGB floorplan once
     base_rgb_img = None
     if RENDER:
         base_rgb_img = floorplan_to_rgb(simulation.floor_layout)
 
-    #render_console(simulation, 0)
+    # render_console(simulation, 0)
     time.sleep(1.0)
 
     pool = None

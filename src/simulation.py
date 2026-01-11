@@ -78,12 +78,15 @@ class SpatialPool:
 
 
 class Simulation:
-    def __init__(self, rng: np.random.Generator, floor_layout, layout_sff, agent_count, k, xi, verbose=0):
+    def __init__(self, rng: np.random.Generator, floor_layout, all_goals_sff: np.ndarray,
+                 goal_specific_sffs: list[np.ndarray], agent_count, k, xi):
+        assert floor_layout.shape[0] == all_goals_sff.shape[0]
+        assert floor_layout.shape[1] == all_goals_sff.shape[1]
 
-        self.verbose = verbose  # 1: print basic info, 2: detailed per-step info 0: silent
         self.rng = rng
         self.floor_layout = floor_layout
-        self.layout_sff = layout_sff
+        self.all_goals_sff = all_goals_sff
+        self.goal_specific_sffs = goal_specific_sffs
         self.agent_count = agent_count
         self.k = k
         self.xi = xi
@@ -93,7 +96,7 @@ class Simulation:
         self.metrics = Metrics()
 
         # 1. Get all traversable coordinates
-        free_space = list(getSafeWhiteCoords(self.floor_layout, self.layout_sff))
+        free_space = list(getSafeWhiteCoords(self.floor_layout, self.all_goals_sff))
         actual_target = min(len(free_space), self.agent_count)
 
         # 2. Cluster Spawning Logic
@@ -125,31 +128,18 @@ class Simulation:
 
         # 3. Place the agents
         for i, (x, y) in enumerate(selected_coords):
-            agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, self.verbose)
+            # Agent knows random subset of exits
+            num_exits = len(self.goal_specific_sffs)
+            num_to_know = self.rng.integers(1, num_exits + 1)
+            known_indices = self.rng.choice(num_exits, size=num_to_know, replace=False)
+
+            # Combine the SFFs: The agent follows the shortest path to ANY known exit
+            # Initialize with infinity
+            agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
+            for idx in known_indices:
+                agent_sff = np.minimum(agent_sff, self.goal_specific_sffs[idx])
+            agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, agent_sff)
             self.agentmap.add(agent, x, y)
-
-        if len(self.agentmap) < self.agent_count:
-            if self.verbose >= 1:
-                print(f"Warning: Only {len(self.agentmap)} agents were placed.")
-
-    def _get_moore_neighborhood(self, x, y):
-        # Create a 3x3 window initialized with Infinity (Walls)
-        window = np.full((3, 3), np.inf)
-
-        # Determine bounds
-        x_start, x_end = max(0, x - 1), min(self.x_dim, x + 2)
-        y_start, y_end = max(0, y - 1), min(self.y_dim, y + 2)
-
-        # Determine placement in window
-        win_x_start = 1 - (x - x_start)
-        win_x_end = win_x_start + (x_end - x_start)
-        win_y_start = 1 - (y - y_start)
-        win_y_end = win_y_start + (y_end - y_start)
-
-        window[win_x_start:win_x_end, win_y_start:win_y_end] = \
-            self.layout_sff[x_start:x_end, y_start:y_end]
-
-        return window
 
     def _calculate_friction_probability(self, n):
         assert n > 1
@@ -165,15 +155,10 @@ class Simulation:
         self.rng.shuffle(current_agents)
 
         for agent in current_agents:
-            if self.verbose >= 1:
-                print("TSTE")
-            obs = Observation(self._get_moore_neighborhood(agent.state.x, agent.state.y))
             if self.rng.random() >= agent.mobility:
                 # Slow agents move less
                 continue
-            dy, dx = agent.decide_action(obs)
-            if self.verbose >= 1:
-                print(agent.verbose)
+            dy, dx = agent.decide_action()
 
             target_x = agent.state.x + dx
             target_y = agent.state.y + dy
@@ -201,7 +186,7 @@ class Simulation:
                 tx, ty = target
                 assert 0 <= tx < self.x_dim and 0 <= ty < self.y_dim, "Agent wants to move outside map!"
                 # Check for exit (SFF == 0)
-                if self.layout_sff[tx, ty] == 0:
+                if self.all_goals_sff[tx, ty] == 0:
                     agents_to_remove.append((winner, tx, ty))
                 # Move only if the target is empty
                 elif self.agentmap.get_at(tx, ty) is None:
@@ -214,11 +199,6 @@ class Simulation:
             self.agentmap.remove(agent)
         for agent, tx, ty in agents_to_move:
             self.agentmap.unsafe_update_grid(agent, tx, ty)
-
-        if self.verbose >= 2:
-            # file path is logs/steps/step_{self.metrics.steps_taken}.png
-            filePath = f"logs/steps/{self.metrics.steps_taken}.png"
-            print_agents_on_floorplan(self.floor_layout, self.agentmap.agents, filePath)
         self.metrics.steps_taken += 1
 
     def is_completed(self):
