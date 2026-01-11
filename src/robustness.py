@@ -19,11 +19,11 @@ def run_monte_carlo(
         sim = Simulation(
             rng=rng,
             floor_layout=floor_layout,
-            goal_specific_sffs=layout_sff,
+            all_goals_sff=layout_sff,
+            goal_specific_sffs=[layout_sff],
             agent_count=agent_count,
             k=k,
             xi=xi,
-            verbose=0
         )
 
         while not sim.is_completed() and sim.metrics.steps_taken < max_steps:
@@ -64,11 +64,11 @@ def run_spatial_heatmap(
         sim = Simulation(
             rng=rng,
             floor_layout=floor_layout,
-            goal_specific_sffs=layout_sff,
+            all_goals_sff=layout_sff,
+            goal_specific_sffs=[layout_sff],
             agent_count=agent_count,
             k=k,
             xi=xi,
-            verbose=0
         )
 
         while not sim.is_completed() and sim.metrics.steps_taken < max_steps:
