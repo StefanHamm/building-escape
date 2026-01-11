@@ -1,13 +1,10 @@
-# from floorEnvironment import FloorEnvironment
 import glob
 
 from simulation import Simulation
-from agent import Agent
 import numpy as np
 from visualize import create_video_from_steps, print_agents_on_floorplan, floorplan_to_rgb
 import shutil
 import time
-import sys
 import os
 import multiprocessing
 import copy

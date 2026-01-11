@@ -22,10 +22,12 @@ if __name__ == "__main__":
 
             exits = findExits(floorplan)
             for exit in exits:
-                # export the sff as a npy file
-                sff = calculateSFF(floorplan, [exit])
                 export_path = os.path.join(export_dir, filename.replace('.fplan', f'_sff_{exit[0]}_{exit[0]}.npy'))
                 with open(export_path, 'wb') as f:
-                    np.save(f, sff)
+                    np.save(f, calculateSFF(floorplan, [exit]))
+
+            export_path = os.path.join(export_dir, filename.replace('.fplan', f'_sff.npy'))
+            with open(export_path, 'wb') as f:
+                np.save(f, calculateSFF(floorplan, exits))
 
     visualizeFloorPlansWithSFF(floorplans_dir, export_dir, show_gradients=True, export_folder=visualizations_dir)

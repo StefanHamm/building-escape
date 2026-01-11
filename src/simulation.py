@@ -3,10 +3,8 @@ import random
 
 import numpy as np
 from helper import getSafeWhiteCoords
-from sharedClasses import AgentState, Observation
+from sharedClasses import AgentState
 from agent import Agent
-
-from visualize import print_agents_on_floorplan
 
 
 @dataclasses.dataclass

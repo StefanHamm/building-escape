@@ -2,9 +2,9 @@ import random
 import numpy as np
 from statistics import median
 from concurrent.futures import ProcessPoolExecutor
+import loader as ld
 
 from simulation import Simulation
-from floorEnvironment import FloorEnvironment
 
 # Configuration
 FLOORS = ["t4_simple", "t4_big_door", "t4_pillar", "t4_funnel", "t4_rooms", "t4_chokepoints"]
@@ -25,8 +25,15 @@ def run_simulation(params):
 
     for _ in range(5):
         seed = random.randint(0, 100_000_000)
-        floor_env = FloorEnvironment(seed=seed, floor_layout_path=floor_path, floor_sff_path=sff_path)
-        simulation = Simulation(np.random.default_rng(seed), floor_env.floor_layout, floor_env.floor_sff, agents, k, xi)
+        simulation = Simulation(
+            np.random.default_rng(seed),
+            ld.loadFloorPlan(floor_path),
+            ld.load_sff_from_npy(sff_path),
+            [ld.load_sff_from_npy(sff_path)],
+            agents,
+            k,
+            xi
+        )
 
         while not simulation.is_completed():
             simulation.step()
