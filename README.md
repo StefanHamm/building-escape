@@ -28,3 +28,10 @@ The SSF is saved as a numpy array in the `data/floorPlansSSF` folder.
 Visualizations are automatically created and saved in the `data/floorPlanSSFVisualizations` folder.
 
 ![Visualization Example](data/floorPlansSSFVisualizations/small_visualization.png)
+
+## Example Simulation Video
+
+> [Download/Watch the simulation video (MP4, 5 FPS)](logs/video/freihausEG.mp4)
+
+
+# ![Simulation Video](logs/video/freihausEG.gif)
