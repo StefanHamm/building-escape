@@ -17,12 +17,13 @@ class Agent:
         self.verbose = vebose
         self.rng = rng
         # make agents randomly more greedy
-        self.k = max(0.2, np.random.normal(loc=k, scale=k / 3))
+        self.k = max(0.3, np.random.normal(loc=k, scale=k / 3))
         if self.k <= 0:
             raise ValueError("Parameter k must be positive")
         self.memory = [self.state]  # to store past states or observations if needed
         self.actions = Actions()
         self.decisionType = decisionType  # e.g., default, min_scaling, division_scaling
+        self.mobility = np.clip(np.random.normal(0.8, 0.2), 0.3, 1.0)
 
     def decide_action(self, observation: Observation):
         observation.mooreNeighborhoodSFF[1, 1] = np.inf

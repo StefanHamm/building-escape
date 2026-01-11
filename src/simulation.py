@@ -168,6 +168,9 @@ class Simulation:
             if self.verbose >= 1:
                 print("TSTE")
             obs = Observation(self._get_moore_neighborhood(agent.state.x, agent.state.y))
+            if self.rng.random() >= agent.mobility:
+                # Slow agents move less
+                continue
             dy, dx = agent.decide_action(obs)
             if self.verbose >= 1:
                 print(agent.verbose)
