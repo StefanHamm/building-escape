@@ -2,8 +2,6 @@ import random
 import numpy as np
 from statistics import median
 from concurrent.futures import ProcessPoolExecutor
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from simulation import Simulation
 from floorEnvironment import FloorEnvironment
@@ -43,60 +41,6 @@ def run_simulation(params):
     return f_idx, a_idx, k_idx, x_idx, result
 
 
-def analyze_impact(results):
-    variables = {"Floor": (0, FLOORS), "Agents": (1, AGENTS), "K": (2, K_VALS), "Xi": (3, XI_VALS)}
-
-    print("\n--- Interaction Analysis: K vs XI ---")
-    # Average over Floor (axis 0) and Agents (axis 1)
-    # This leaves us with a shape of (len(K_VALS), len(XI_VALS), METRICS_COUNT)
-    interaction = np.mean(results, axis=(0, 1))
-
-    metric_names = ["Steps", "Collisions", "Blocked"]
-    for m_idx, name in enumerate(metric_names):
-        print(f"\nMatrix for {name} (Rows=K, Cols=Xi):")
-        # Header
-        header = "      " + " ".join([f"Xi={x:<6}" for x in XI_VALS])
-        print(header)
-
-        for k_idx, k_val in enumerate(K_VALS):
-            row = [f"{interaction[k_idx, x_idx, m_idx]:<9.1f}" for x_idx in range(len(XI_VALS))]
-            print(f"K={k_val:<3} | " + " ".join(row))
-
-    print("\n--- Variable Impact Analysis (Marginal Means) ---")
-    for var_name, (axis, values) in variables.items():
-        print(f"\nImpact of {var_name}:")
-        axes_to_average = tuple(i for i in range(4) if i != axis)
-        impact = np.mean(results, axis=axes_to_average)
-        for i, val in enumerate(values):
-            m = impact[i]
-            print(f"  {val} -> Steps: {m[0]:.1f}, Collisions: {m[1]:.1f}, Blocked: {m[2]:.1f}")
-
-
-def plot_interaction(results):
-    interaction = np.mean(results, axis=(0, 1))
-    metric_names = ["Steps", "Collisions", "Blocked"]
-
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    for i, name in enumerate(metric_names):
-        sns.heatmap(
-            interaction[:, :, i],
-            annot=True,
-            fmt=".1f",
-            xticklabels=XI_VALS,
-            yticklabels=K_VALS,
-            ax=axes[i],
-            cmap="YlGnBu"
-        )
-        axes[i].set_title(f"K vs Xi Interaction ({name})")
-        axes[i].set_xlabel("Xi")
-        axes[i].set_ylabel("K")
-
-    plt.tight_layout()
-    plt.savefig("logs/interaction_heatmap.png")
-    plt.show()
-
-
 if __name__ == "__main__":
     results_tensor = np.zeros((len(FLOORS), len(AGENTS), len(K_VALS), len(XI_VALS), METRICS_COUNT))
 
@@ -122,6 +66,4 @@ if __name__ == "__main__":
             flush=True
         )
 
-    analyze_impact(results_tensor)
-    plot_interaction(results_tensor)
     np.save("logs/simulation_results.npy", results_tensor)

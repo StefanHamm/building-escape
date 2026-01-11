@@ -78,7 +78,7 @@ def save_frame_async(floor_layout, agents, step, export_path, base_rgb_img=None)
 
 
 RENDER = True
-AGENTS = 150
+AGENTS = 100
 FLOOR = "t4_pillar"
 
 if __name__ == "__main__":

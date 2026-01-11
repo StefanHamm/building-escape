@@ -16,7 +16,8 @@ class Agent:
         self.state = start_state
         self.verbose = vebose
         self.rng = rng
-        self.k = k  # model parameter must be positive
+        # make agents randomly more greedy
+        self.k = max(0.2, np.random.normal(loc=k, scale=k / 3))
         if self.k <= 0:
             raise ValueError("Parameter k must be positive")
         self.memory = [self.state]  # to store past states or observations if needed
