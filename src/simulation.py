@@ -1,9 +1,23 @@
+import dataclasses
+
 import numpy as np
-from helper import getAllWhiteCoords, getSafeWhiteCoords
+from helper import getSafeWhiteCoords
 from sharedClasses import AgentState, Observation
 from agent import Agent
 
 from visualize import print_agents_on_floorplan
+
+
+@dataclasses.dataclass
+class Metrics:
+    steps_taken: int
+    collisions: int
+    blocked: int
+
+    def __init__(self, steps_taken=0, collisions=0, blocked=0):
+        self.steps_taken = steps_taken
+        self.collisions = collisions
+        self.blocked = blocked
 
 
 class SpatialPool:
@@ -66,7 +80,6 @@ class Simulation:
     def __init__(self, rng: np.random.Generator, floor_layout, layout_sff, agent_count, k, xi, verbose=0):
 
         self.verbose = verbose  # 1: print basic info, 2: detailed per-step info 0: silent
-        self.step_count = 0
         self.rng = rng
         self.floor_layout = floor_layout
         self.layout_sff = layout_sff
@@ -76,8 +89,9 @@ class Simulation:
         self.x_dim = self.floor_layout.shape[0]
         self.y_dim = self.floor_layout.shape[1]
         self.agentmap = SpatialPool()
+        self.metrics = Metrics()
 
-        free_space = list(getSafeWhiteCoords(self.floor_layout,self.layout_sff))
+        free_space = list(getSafeWhiteCoords(self.floor_layout, self.layout_sff))
         actual_count = min(len(free_space),
                            self.agent_count)  # Ensure we don't try to spawn more agents than free space
         selected_idx = self.rng.choice(len(free_space), size=actual_count, replace=False)
@@ -111,7 +125,7 @@ class Simulation:
         return window
 
     def _calculate_friction_probability(self, n):
-        if n <= 1: return 0.0
+        assert n > 1
         # Formula: 1 - (1 - xi)^n - n*xi*(1 - xi)^(n-1)
         term1 = (1 - self.xi) ** n
         term2 = n * self.xi * ((1 - self.xi) ** (n - 1))
@@ -151,6 +165,8 @@ class Simulation:
                 mu = self._calculate_friction_probability(n)
                 if self.rng.random() >= mu:
                     winner = self.rng.choice(candidates)
+                else:
+                    self.metrics.collisions += 1
             if winner:
                 tx, ty = target
                 assert 0 <= tx < self.x_dim and 0 <= ty < self.y_dim, "Agent wants to move outside map!"
@@ -160,6 +176,8 @@ class Simulation:
                 # Move only if the target is empty
                 elif self.agentmap.get_at(tx, ty) is None:
                     agents_to_move.append((winner, tx, ty))
+                else:
+                    self.metrics.blocked += 1
 
         # Phase 3: Execute
         for agent, tx, ty in agents_to_remove:
@@ -168,10 +186,10 @@ class Simulation:
             self.agentmap.unsafe_update_grid(agent, tx, ty)
 
         if self.verbose >= 2:
-            # file path is logs/steps/step_{self.step_count}.png
-            filePath = f"logs/steps/{self.step_count}.png"
+            # file path is logs/steps/step_{self.metrics.steps_taken}.png
+            filePath = f"logs/steps/{self.metrics.steps_taken}.png"
             print_agents_on_floorplan(self.floor_layout, self.agentmap.agents, filePath)
-        self.step_count += 1
+        self.metrics.steps_taken += 1
 
     def is_completed(self):
         return all(map(lambda x: x.state.done, self.agentmap.agents))
