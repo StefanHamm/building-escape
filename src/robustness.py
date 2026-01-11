@@ -8,9 +8,10 @@ def run_monte_carlo(
     k,
     xi,
     n_runs=100,
-    max_steps=10_000
+    max_steps=5000
 ):
     evacuation_times = []
+    failed_runs = 0
 
     for r in range(n_runs):
         rng = np.random.default_rng(seed=r)
@@ -25,19 +26,25 @@ def run_monte_carlo(
             verbose=0
         )
 
-        while not sim.is_completed() and sim.step_count < max_steps:
+        while not sim.is_completed() and sim.metrics.steps_taken < max_steps:
             sim.step()
 
-        evacuation_times.append(sim.step_count)
+        if sim.is_completed():
+            # SUCCESS: true evacuation time
+            evacuation_times.append(sim.metrics.steps_taken)
+        else:
+            # FAILURE: not fully evacuated
+            failed_runs += 1
 
     evacuation_times = np.array(evacuation_times)
 
     return {
-        "mean_time": evacuation_times.mean(),
-        "std_time": evacuation_times.std(),
-        "max_time": evacuation_times.max(),
-        "min_time": evacuation_times.min(),
-        "all_times": evacuation_times
+        "mean_time": evacuation_times.mean() if len(evacuation_times) > 0 else np.nan,
+        "std_time": evacuation_times.std() if len(evacuation_times) > 0 else np.nan,
+        "min_time": evacuation_times.min() if len(evacuation_times) > 0 else np.nan,
+        "max_time": evacuation_times.max() if len(evacuation_times) > 0 else np.nan,
+        "all_times": evacuation_times,
+        "failure_rate": failed_runs / n_runs
     }
 
 def run_spatial_heatmap(
@@ -64,7 +71,7 @@ def run_spatial_heatmap(
             verbose=0
         )
 
-        while not sim.is_completed() and sim.step_count < max_steps:
+        while not sim.is_completed() and sim.metrics.steps_taken < max_steps:
             # count agent positions BEFORE movement
             for agent in sim.agentmap.agents:
                 if not agent.state.done:
