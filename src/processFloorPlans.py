@@ -10,7 +10,8 @@ from visualize import visualizeFloorPlansWithSFF
 floorplans_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'floorPlans')
 export_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'floorPlansSSF')
 visualizations_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'floorPlansSSFVisualizations')
-
+# visdir for only gradient as in the task desc
+gradients_only_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'floorPlansSSFVisualizations/GradientsOnly')
 if __name__ == "__main__":
     # ensure export dir exists
     os.makedirs(export_dir, exist_ok=True)
@@ -30,4 +31,4 @@ if __name__ == "__main__":
             with open(export_path, 'wb') as f:
                 np.save(f, calculateSFF(floorplan, exits))
 
-    visualizeFloorPlansWithSFF(floorplans_dir, export_dir, show_gradients=True, export_folder=visualizations_dir)
+    visualizeFloorPlansWithSFF(floorplans_dir, export_dir, show_gradients=True, export_folder=visualizations_dir, gradient_only_folder=gradients_only_dir)

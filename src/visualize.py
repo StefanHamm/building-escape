@@ -183,16 +183,10 @@ def plot_heatmap(mat: np.ndarray, xvals=None, yvals=None, xlabel="xi", ylabel="k
 
 
 
-def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients: bool = True, export_folder: Optional[str] = None):
-    """Visualize all .fplan files in floorplans_dir with their corresponding
-    static floor field (_sff.npy) files in sff_dir in a 2x2 grid.
-
-    Shows 4 different gradient visualizations:
-    - Top-left: Neighbor gradient (lowest neighbor)
-    - Top-right: Horizontal gradient
-    - Bottom-left: Vertical gradient
-    - Bottom-right: Combined (horizontal + vertical)
-
+def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients: bool = True, export_folder: str = None, gradient_only_folder: str = None):
+    """
+    Visualizes all floorplans in floorplans_dir.
+    Plots the floorplan, the SFF heatmap (read from sff_dir), and optional gradients.
     Clicking on any image prints the cell coordinates, the floorplan character
     and the SFF value (if available) and places a marker.
     
@@ -200,6 +194,8 @@ def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients
         floorplans_dir: Directory containing .fplan files
         sff_dir: Directory containing _sff.npy files
         show_gradients: If True, overlay gradient arrows pointing towards 0
+        export_folder: If provided, save the plot to this folder instead of showing.
+        gradient_only_folder: If provided, save a separate plot with only the combined gradient to this folder.
     """
     os.makedirs(sff_dir, exist_ok=True)
 
@@ -291,6 +287,33 @@ def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients
             print(f"Saved visualization to {save_file}")
         else:
             plt.show()
+        
+        if gradient_only_folder:
+            os.makedirs(gradient_only_folder, exist_ok=True)
+            save_file = os.path.join(gradient_only_folder, filename.replace('.fplan', '_visualization.png'))
+            
+            # Create a separate figure for the single plot
+            fig_single, ax_single = plt.subplots(figsize=(max(8, cols / 2.5), max(8, rows / 2.5)))
+            
+            # Use the existing helper to plot the Combined Gradient
+            setup_subplot(ax_single, 'Combined Gradient', dir_combined_row, dir_combined_col)
+            
+            # Add colorbar to this single figure
+            sff_masked = np.ma.array(sff, mask=~np.isfinite(sff))
+            sm = plt.cm.ScalarMappable(cmap='viridis', norm=plt.Normalize(vmin=sff_masked.min(), vmax=sff_masked.max()))
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ax=ax_single)
+            cbar.set_label('SFF value')
+            
+            plt.tight_layout()
+            fig_single.savefig(save_file, dpi=300, bbox_inches='tight')
+            print(f"Saved single gradient visualization to {save_file}")
+            plt.close(fig_single)
+
+        # Clean up the main figure if we're not showing it interactively
+        if export_folder:
+            plt.close(fig)
+
         
 from sharedClasses import AgentState
 
