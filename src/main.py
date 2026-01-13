@@ -54,7 +54,7 @@ def render_console(simulation, step_num=0):
                 row_str += AGENT_BLOCK
 
 
-            elif simulation.layout_sff[x, y] == 0:
+            elif simulation.all_goals_sff[x, y] == 0:
                 row_str += EXIT_BLOCK
 
             elif simulation.floor_layout[x, y] in WALL_CHARS:
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     for step in range(400):
         simulation.step()
 
-        # render_console(simulation, step)
+        #render_console(simulation, step)
 
         # Check completion
         if simulation.is_completed():
