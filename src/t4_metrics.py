@@ -7,7 +7,7 @@ import loader as ld
 from simulation import Simulation
 
 # Configuration
-FLOORS = ["t4_simple", "t4_big_door", "t4_pillar", "t4_funnel", "t4_rooms", "t4_chokepoints"]
+FLOORS = ["t4_simple", "t4_big_door", "t4_double_exit", "t4_pillar", "t4_funnel", "t4_rooms"]
 AGENTS = [50, 100, 150]
 K_VALS = [0.5, 1, 3, 5]
 XI_VALS = [0.1, 0.5, 0.9]
@@ -23,10 +23,9 @@ def run_simulation(params):
 
     steps, collisions, blocked = [], [], []
 
-    for _ in range(5):
-        seed = random.randint(0, 100_000_000)
+    for _ in range(10):
         simulation = Simulation(
-            np.random.default_rng(seed),
+            np.random.default_rng(),
             ld.loadFloorPlan(floor_path),
             ld.load_sff_from_npy(sff_path),
             [ld.load_sff_from_npy(sff_path)],

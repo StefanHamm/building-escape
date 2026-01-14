@@ -166,7 +166,7 @@ class Simulation:
             proposals[(target_x, target_y)].append(agent)
 
         # Phase 2: resolve collisions
-        agents_to_move: list[tuple[Agent, int, int]] = []
+        agents_to_move: dict[int, tuple[Agent, int, int]] = {}
         agents_to_remove: list[tuple[Agent, int, int]] = []
 
         for target, candidates in proposals.items():
@@ -187,16 +187,23 @@ class Simulation:
                 if self.all_goals_sff[tx, ty] == 0:
                     agents_to_remove.append((winner, tx, ty))
                 # Move only if the target is empty
-                elif self.agentmap.get_at(tx, ty) is None:
-                    agents_to_move.append((winner, tx, ty))
                 else:
-                    self.metrics.blocked += 1
+                    agents_to_move[winner.id] = (winner, tx, ty)
 
         # Phase 3: Execute
         for agent, tx, ty in agents_to_remove:
             self.agentmap.remove(agent)
-        for agent, tx, ty in agents_to_move:
-            self.agentmap.unsafe_update_grid(agent, tx, ty)
+        while True:
+            to_remove = []
+            for aid, (agent, tx, ty) in agents_to_move.items():
+                if self.agentmap.get_at(tx, ty) is None:
+                    self.agentmap.unsafe_update_grid(agent, tx, ty)
+                    to_remove.append(aid)
+            if len(to_remove) == 0:
+                self.metrics.blocked += len(agents_to_move)
+                break
+            for aid in to_remove:
+                del agents_to_move[aid]
         self.metrics.steps_taken += 1
 
     def is_completed(self):
