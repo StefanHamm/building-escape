@@ -12,12 +12,15 @@ import numpy as np
 class Agent:
 
     def __init__(self, id, start_state, k, rng: np.random.Generator, decisionType: str, all_goals_sff: np.ndarray,
-                 personalized_sff: np.ndarray):
+                 personalized_sff: np.ndarray,disable_personalized_exit=False,disable_agent_greedy_k=False):
         self.id = id
         self.state = start_state
         self.rng = rng
         # make agents randomly more greedy
-        self.k = max(0.3, self.rng.normal(loc=k, scale=k / 3))
+        if disable_agent_greedy_k:
+            self.k = k
+        else:
+            self.k = max(0.3, self.rng.normal(loc=k, scale=k / 3))
         if self.k <= 0:
             raise ValueError("Parameter k must be positive")
         self.memory = [self.state]  # to store past states or observations if needed
@@ -25,7 +28,10 @@ class Agent:
         self.decisionType = decisionType  # e.g., default, min_scaling, division_scaling
         self.mobility = np.clip(self.rng.normal(0.8, 0.2), 0.3, 1.0)
         self.all_goals_sff = all_goals_sff
-        self.personalized_sff = personalized_sff
+        if disable_personalized_exit:
+            self.personalized_sff = all_goals_sff
+        else:
+            self.personalized_sff = personalized_sff
 
     def _get_moore_neighborhood(self, size=3):
         # Create a window initialized with Infinity (Walls)

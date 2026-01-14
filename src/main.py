@@ -77,7 +77,7 @@ def save_frame_async(floor_layout, agents, step, export_path, base_rgb_img=None)
 
 
 RENDER = True
-AGENTS = 150
+AGENTS = 700
 FLOOR = "freihausEG"
 
 if __name__ == "__main__":
@@ -94,7 +94,11 @@ if __name__ == "__main__":
         sffs,
         AGENTS,
         5,
-        0.5
+        0.5,
+        True,  # disable_personalized_exit
+        True,  # disable_cluster_spawn
+        True,  # disable_agent_mobility
+        True   # disable_agent_greedy_k
     )
 
     # Precompute RGB floorplan once

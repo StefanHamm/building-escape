@@ -296,7 +296,7 @@ def visualizeFloorPlansWithSFF(floorplans_dir: str, sff_dir: str, show_gradients
             fig_single, ax_single = plt.subplots(figsize=(max(8, cols / 2.5), max(8, rows / 2.5)))
             
             # Use the existing helper to plot the Combined Gradient
-            setup_subplot(ax_single, 'Combined Gradient', dir_combined_row, dir_combined_col)
+            setup_subplot(ax_single, filename, dir_combined_row, dir_combined_col)
             
             # Add colorbar to this single figure
             sff_masked = np.ma.array(sff, mask=~np.isfinite(sff))

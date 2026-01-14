@@ -77,9 +77,14 @@ class SpatialPool:
 
 class Simulation:
     def __init__(self, rng: np.random.Generator, floor_layout, all_goals_sff: np.ndarray,
-                 goal_specific_sffs: list[np.ndarray], agent_count, k, xi):
+                 goal_specific_sffs: list[np.ndarray], agent_count, k, xi,disable_personalized_exit=False,disable_cluster_spawn=False,disable_agent_mobility=False,disable_agent_greedy_k=False):
         assert floor_layout.shape[0] == all_goals_sff.shape[0]
         assert floor_layout.shape[1] == all_goals_sff.shape[1]
+        
+        self.disable_personalized_exit=disable_personalized_exit
+        self.disable_cluster_spawn=disable_cluster_spawn
+        self.disable_agent_mobility=disable_agent_mobility
+        self.disable_agent_greedy_k=disable_agent_greedy_k
 
         self.rng = rng
         self.floor_layout = floor_layout
@@ -96,48 +101,62 @@ class Simulation:
         # 1. Get all traversable coordinates
         free_space = list(getSafeWhiteCoords(self.floor_layout, self.all_goals_sff))
         actual_target = min(len(free_space), self.agent_count)
+        
+        if self.disable_cluster_spawn:
+            selected_idx = self.rng.choice(len(free_space), size=actual_target, replace=False)
+            for i, idx in enumerate(selected_idx):
+                (x, y) = free_space[idx]
+                agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, None,self.disable_personalized_exit,self.disable_agent_greedy_k)
+                self.agentmap.add(agent, x, y)
 
-        # 2. Cluster Spawning Logic
-        selected_coords = []
-        available_pool = free_space.copy()
+            if len(self.agentmap) < self.agent_count:
+                if self.verbose >= 1:
+                    print(f"Warning: Only {len(self.agentmap)} agents were placed due to limited free space.")
 
-        while len(selected_coords) < actual_target:
-            # Pick a random "seed" from the remaining available space
-            seed_idx = self.rng.choice(len(available_pool))
-            seed_coord = available_pool.pop(seed_idx)
-            selected_coords.append(seed_coord)
 
-            # Determine how many more agents to add to this specific cluster
-            remaining_needed = actual_target - len(selected_coords)
-            current_cluster_target = min(random.randint(1, 20), remaining_needed, len(available_pool))
+            
+        else:    
+            # 2. Cluster Spawning Logic
+            selected_coords = []
+            available_pool = free_space.copy()
 
-            if current_cluster_target > 0:
-                # Calculate Euclidean distance from all remaining points to the seed
-                coords_array = np.array(available_pool)
-                distances = np.linalg.norm(coords_array - np.array(seed_coord), axis=1)
+            while len(selected_coords) < actual_target:
+                # Pick a random "seed" from the remaining available space
+                seed_idx = self.rng.choice(len(available_pool))
+                seed_coord = available_pool.pop(seed_idx)
+                selected_coords.append(seed_coord)
 
-                # Get indices of the closest points
-                closest_indices = np.argsort(distances)[:current_cluster_target]
+                # Determine how many more agents to add to this specific cluster
+                remaining_needed = actual_target - len(selected_coords)
+                current_cluster_target = min(random.randint(1, 20), remaining_needed, len(available_pool))
 
-                # Pull them out of the available pool and add to our selection
-                # We sort indices in reverse to pop correctly without shifting index references
-                for idx in sorted(closest_indices, reverse=True):
-                    selected_coords.append(available_pool.pop(idx))
+                if current_cluster_target > 0:
+                    # Calculate Euclidean distance from all remaining points to the seed
+                    coords_array = np.array(available_pool)
+                    distances = np.linalg.norm(coords_array - np.array(seed_coord), axis=1)
 
-        # 3. Place the agents
-        for i, (x, y) in enumerate(selected_coords):
-            # Agent knows random subset of exits
-            num_exits = len(self.goal_specific_sffs)
-            num_to_know = self.rng.integers(1, num_exits + 1)
-            known_indices = self.rng.choice(num_exits, size=num_to_know, replace=False)
+                    # Get indices of the closest points
+                    closest_indices = np.argsort(distances)[:current_cluster_target]
 
-            # Combine the SFFs: The agent follows the shortest path to ANY known exit
-            # Initialize with infinity
-            agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
-            for idx in known_indices:
-                agent_sff = np.minimum(agent_sff, self.goal_specific_sffs[idx])
-            agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, agent_sff)
-            self.agentmap.add(agent, x, y)
+                    # Pull them out of the available pool and add to our selection
+                    # We sort indices in reverse to pop correctly without shifting index references
+                    for idx in sorted(closest_indices, reverse=True):
+                        selected_coords.append(available_pool.pop(idx))
+
+            # 3. Place the agents
+            for i, (x, y) in enumerate(selected_coords):
+                # Agent knows random subset of exits
+                num_exits = len(self.goal_specific_sffs)
+                num_to_know = self.rng.integers(1, num_exits + 1)
+                known_indices = self.rng.choice(num_exits, size=num_to_know, replace=False)
+
+                # Combine the SFFs: The agent follows the shortest path to ANY known exit
+                # Initialize with infinity
+                agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
+                for idx in known_indices:
+                    agent_sff = np.minimum(agent_sff, self.goal_specific_sffs[idx])
+                agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, agent_sff,self.disable_personalized_exit,self.disable_agent_greedy_k)
+                self.agentmap.add(agent, x, y)
 
     def _calculate_friction_probability(self, n):
         assert n > 1
@@ -153,7 +172,7 @@ class Simulation:
         self.rng.shuffle(current_agents)
 
         for agent in current_agents:
-            if self.rng.random() >= agent.mobility:
+            if self.rng.random() >= agent.mobility and not self.disable_agent_mobility:
                 # Slow agents move less
                 continue
             dy, dx = agent.decide_action()
