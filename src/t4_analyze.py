@@ -109,16 +109,31 @@ def plot_efficiency_grid(data):
     plt.show()
 
 
-def plot_floor_vs_agents(data, k_val, xi_val):
+def plot_floor_vs_agents(data, target_k_vals, target_xi_vals):
     """
-    Generates a heatmap comparing Floor Plans (X) vs Agent Density (Y)
-    for a specific behavioral configuration.
+    Generates a heatmap averaging over multiple k and xi values.
+    Uses np.take to ensure a matrix output is preserved.
     """
-    k_idx = K_VALS.index(k_val)
-    xi_idx = XI_VALS.index(xi_val)
-    comparison_matrix = data[:, :, k_idx, xi_idx, 0].T
+    # 1. Get Indices
+    k_idxs = [K_VALS.index(k) for k in target_k_vals]
+    xi_idxs = [XI_VALS.index(xi) for xi in target_xi_vals]
 
-    # 3. Plotting
+    # 2. Robust Slicing with np.take
+    # This ensures we get the full block (Outer Product) rather than diagonal points
+    subset = np.take(data, k_idxs, axis=2)  # Filter K (axis 2)
+    subset = np.take(subset, xi_idxs, axis=3)  # Filter Xi (axis 3)
+
+    # subset is now shape: (Floors, Agents, len(k_idxs), len(xi_idxs), 1)
+
+    # 3. Average and Reshape
+    # Select index 0 for the last dimension (metrics)
+    # Then mean across K (axis 2) and Xi (axis 3)
+    averaged_matrix = np.mean(subset[..., 0], axis=(2, 3))
+
+    # Transpose to match (Agents, Floors) for heatmap
+    comparison_matrix = averaged_matrix.T
+
+    # 4. Plotting
     plt.figure(figsize=(10, 7))
     sns.heatmap(
         comparison_matrix,
@@ -129,11 +144,12 @@ def plot_floor_vs_agents(data, k_val, xi_val):
         yticklabels=AGENTS,
     )
 
+    plt.title(f"Average Performance (k={target_k_vals}, xi={target_xi_vals})")
     plt.xlabel("Floor Plan Structure", fontweight='bold')
     plt.ylabel("Number of Agents (Density)", fontweight='bold')
 
     plt.tight_layout()
-    plt.savefig(f"logs/scaling_comparison_k{k_val}_xi{xi_val}.png")
+    plt.savefig(f"logs/scaling_avg_k{len(target_k_vals)}_xi{len(target_xi_vals)}.png")
     plt.show()
 
 
@@ -152,4 +168,4 @@ if __name__ == "__main__":
     plot_interaction(data)
 
     plot_efficiency_grid(data)
-    plot_floor_vs_agents(data, k_val=5, xi_val=0.5)
+    plot_floor_vs_agents(data, K_VALS, XI_VALS)
