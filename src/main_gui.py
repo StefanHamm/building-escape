@@ -189,7 +189,7 @@ class SimulationGUI:
         self.lbl_xi = pygame_gui.elements.UILabel(pygame.Rect((x_start+w-50, y-20), (50, 20)), "0.5", self.ui_manager)
         space(40)
 
-        pygame_gui.elements.UILabel(pygame.Rect((x_start, y), (w, 20)), "Speed (Steps/Sec):", self.ui_manager)
+        pygame_gui.elements.UILabel(pygame.Rect((x_start, y), (w, 20)), "Speed (Target Steps/Sec):", self.ui_manager)
         space(20)
         self.slider_speed = pygame_gui.elements.UIHorizontalSlider(
             pygame.Rect((x_start, y), (w, 25)), start_value=30, value_range=(1, 100), manager=self.ui_manager
