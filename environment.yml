@@ -23,4 +23,6 @@ dependencies:
     - imageio-ffmpeg
     - celluloid
     - matplotlib-scalebar
+    - pygame-ce
+    - pygame_gui
 
