@@ -13,7 +13,7 @@ import loader as ld
 SIDEBAR_WIDTH = 320
 UI_FPS = 60
 MIN_WIN_WIDTH = 1200
-MIN_WIN_HEIGHT = 800
+MIN_WIN_HEIGHT = 850
 
 # Colors
 COLOR_BG = (30, 30, 30)
@@ -26,7 +26,6 @@ WALL_CHARS = {'#', '1', 'W', '@'}
 class SimulationGUI:
     def __init__(self):
         pygame.init()
-        self.rng = np.random.default_rng()
         
         # --- File Discovery ---
         self.available_floorplans = []
@@ -54,6 +53,7 @@ class SimulationGUI:
         self.step_once = False
         self.sim_accumulated_time = 0.0
         self.target_sim_fps = 30.0
+        self.current_seed = 42
         
         # Layout State
         self.cell_size = 10
@@ -151,7 +151,17 @@ class SimulationGUI:
             relative_rect=pygame.Rect((x_start, y), (w, 30)),
             manager=self.ui_manager
         )
-        space(45)
+        space(40)
+
+        pygame_gui.elements.UILabel(pygame.Rect((x_start, y), (w, 20)), "Simulation Seed (Integer):", self.ui_manager)
+        space(20)
+        self.entry_seed = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect((x_start, y), (w, 30)),
+            manager=self.ui_manager
+        )
+        self.entry_seed.set_text(str(self.current_seed))
+        self.entry_seed.set_allowed_characters('numbers') 
+        space(40)
 
         # Agent Count
         pygame_gui.elements.UILabel(pygame.Rect((x_start, y), (w, 20)), "Agent Count:", self.ui_manager)
@@ -227,7 +237,20 @@ class SimulationGUI:
         self.lbl_blocked = pygame_gui.elements.UILabel(pygame.Rect((x_start, y), (w, 25)), "Blocked: 0", self.ui_manager)
 
     def reinit_simulation(self):
-        # 1. Calculate Capacity
+        # 1. Parse Seed
+        try:
+            raw_text = self.entry_seed.get_text()
+            seed_val = int(raw_text)
+            self.current_seed = seed_val
+        except ValueError:
+            print(f"Invalid seed '{raw_text}', reverting to {self.current_seed}")
+            self.entry_seed.set_text(str(self.current_seed))
+            seed_val = self.current_seed
+
+        print(f"Initializing RNG with seed: {seed_val}")
+        self.rng = np.random.default_rng(seed_val)
+
+        # 2. Calculate Capacity
         max_cap = len(getSafeWhiteCoords(self.floor_layout, self.sff_all))
         desired = int(self.slider_agents.get_current_value())
         
@@ -238,11 +261,11 @@ class SimulationGUI:
             self.slider_agents.set_current_value(desired)
             self.lbl_agents.set_text(str(desired))
 
-        # 2. Parameters
+        # 3. Parameters
         k_val = self.slider_k.get_current_value()
         xi_val = self.slider_xi.get_current_value()
         
-        # 3. Flags Logic
+        # 4. Flags Logic
         # The UI represents "Enabled" (True).
         # The Simulation expects "Disabled" (True).
         disable_flags = []
@@ -250,7 +273,7 @@ class SimulationGUI:
             is_enabled = btn.user_data['checked']
             disable_flags.append(not is_enabled)
 
-        # 4. Init
+        # 5. Init
         try:
             self.sim = Simulation(
                 self.rng,
