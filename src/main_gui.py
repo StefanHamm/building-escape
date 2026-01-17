@@ -75,6 +75,7 @@ class SimulationGUI:
             self.floor_layout = ld.loadFloorPlan(floor_path)
             self.sff_all = ld.load_sff_from_npy(sff_main_path)
             self.sff_list = [ld.load_sff_from_npy(x) for x in glob.glob(sff_pattern)]
+            print(self.sff_list)
             self.current_floor_name = floor_name
         except Exception as e:
             print(f"Error loading {floor_name}: {e}")
@@ -176,7 +177,7 @@ class SimulationGUI:
         pygame_gui.elements.UILabel(pygame.Rect((x_start, y), (w, 20)), "Greediness (k):", self.ui_manager)
         space(20)
         self.slider_k = pygame_gui.elements.UIHorizontalSlider(
-            pygame.Rect((x_start, y), (w, 25)), start_value=5, value_range=(0, 20), manager=self.ui_manager
+            pygame.Rect((x_start, y), (w, 25)), start_value=1.0, value_range=(0.0, 5.0), manager=self.ui_manager
         )
         self.lbl_k = pygame_gui.elements.UILabel(pygame.Rect((x_start+w-50, y-20), (50, 20)), "5.0", self.ui_manager)
         space(40)
