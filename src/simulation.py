@@ -101,12 +101,25 @@ class Simulation:
         # 1. Get all traversable coordinates
         free_space = list(getSafeWhiteCoords(self.floor_layout, self.all_goals_sff))
         actual_target = min(len(free_space), self.agent_count)
+        personalized_sff = []
+        if not self.disable_personalized_exit:
+            for i in range(actual_target):
+                num_exits = len(self.goal_specific_sffs)
+                num_to_know = self.rng.integers(1, num_exits + 1)
+                known_indices = self.rng.choice(num_exits, size=num_to_know, replace=False)
+                agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
+                personalized_sff.append(agent_sff)
+        else:
+            # repeate None for len of selected_idx
+            personalized_sff = [None] * actual_target
+
+                
         
         if self.disable_cluster_spawn:
             selected_idx = self.rng.choice(len(free_space), size=actual_target, replace=False)
             for i, idx in enumerate(selected_idx):
                 (x, y) = free_space[idx]
-                agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, None,self.disable_personalized_exit,self.disable_agent_greedy_k)
+                agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, personalized_sff[i],self.disable_personalized_exit,self.disable_agent_greedy_k)
                 self.agentmap.add(agent, x, y)
 
             if len(self.agentmap) < self.agent_count:
@@ -146,16 +159,16 @@ class Simulation:
             # 3. Place the agents
             for i, (x, y) in enumerate(selected_coords):
                 # Agent knows random subset of exits
-                num_exits = len(self.goal_specific_sffs)
-                num_to_know = self.rng.integers(1, num_exits + 1)
-                known_indices = self.rng.choice(num_exits, size=num_to_know, replace=False)
+                # num_exits = len(self.goal_specific_sffs)
+                # num_to_know = self.rng.integers(1, num_exits + 1)
+                # known_indices = self.rng.choice(num_exits, size=num_to_know, replace=False)
 
-                # Combine the SFFs: The agent follows the shortest path to ANY known exit
-                # Initialize with infinity
-                agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
+                # # Combine the SFFs: The agent follows the shortest path to ANY known exit
+                # # Initialize with infinity
+                # agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
                 for idx in known_indices:
                     agent_sff = np.minimum(agent_sff, self.goal_specific_sffs[idx])
-                agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, agent_sff,self.disable_personalized_exit,self.disable_agent_greedy_k)
+                agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, personalized_sff[i],self.disable_personalized_exit,self.disable_agent_greedy_k)
                 self.agentmap.add(agent, x, y)
 
     def _calculate_friction_probability(self, n):
