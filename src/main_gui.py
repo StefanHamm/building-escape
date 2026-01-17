@@ -179,7 +179,7 @@ class SimulationGUI:
         self.slider_k = pygame_gui.elements.UIHorizontalSlider(
             pygame.Rect((x_start, y), (w, 25)), start_value=1.0, value_range=(0.0, 5.0), manager=self.ui_manager
         )
-        self.lbl_k = pygame_gui.elements.UILabel(pygame.Rect((x_start+w-50, y-20), (50, 20)), "5.0", self.ui_manager)
+        self.lbl_k = pygame_gui.elements.UILabel(pygame.Rect((x_start+w-50, y-20), (50, 20)), "1.0", self.ui_manager)
         space(40)
 
         pygame_gui.elements.UILabel(pygame.Rect((x_start, y), (w, 20)), "Xi (Wall Repulsion):", self.ui_manager)
