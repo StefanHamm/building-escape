@@ -95,7 +95,7 @@ if __name__ == "__main__":
         AGENTS,
         5,
         0.5,
-        True,  # disable_personalized_exit
+        False,  # disable_personalized_exit
         True,  # disable_cluster_spawn
         True,  # disable_agent_mobility
         True   # disable_agent_greedy_k
