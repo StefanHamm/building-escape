@@ -108,6 +108,8 @@ class Simulation:
                 num_to_know = self.rng.integers(1, num_exits + 1)
                 known_indices = self.rng.choice(num_exits, size=num_to_know, replace=False)
                 agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
+                for idx in known_indices:
+                    agent_sff = np.minimum(agent_sff, self.goal_specific_sffs[idx])
                 personalized_sff.append(agent_sff)
         else:
             # repeate None for len of selected_idx
@@ -166,8 +168,7 @@ class Simulation:
                 # # Combine the SFFs: The agent follows the shortest path to ANY known exit
                 # # Initialize with infinity
                 # agent_sff = np.full((self.x_dim, self.y_dim), np.inf)
-                for idx in known_indices:
-                    agent_sff = np.minimum(agent_sff, self.goal_specific_sffs[idx])
+                
                 agent = Agent(i + 1, AgentState(x, y), self.k, self.rng, "default", all_goals_sff, personalized_sff[i],self.disable_personalized_exit,self.disable_agent_greedy_k)
                 self.agentmap.add(agent, x, y)
 
